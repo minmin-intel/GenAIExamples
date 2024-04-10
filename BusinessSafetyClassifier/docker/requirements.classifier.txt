@@ -1,0 +1,5 @@
+pandas
+numpy
+sentence-transformers
+scikit-learn
+einops

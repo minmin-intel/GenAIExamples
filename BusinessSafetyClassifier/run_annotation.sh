@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# eval dataset
-FILEDIR=/home/user/workspace/datasets/patronus_enterprise_pii/ #/mnt/disk3/minminhou/datasets/patronus_enterprise_pii/
+# dataset
+FILEDIR=/home/user/workspace/datasets/patronus_enterprise_pii/
 FILENAME=processed_patronus_enterprise_pii.csv
 OUTPUT=annotated_patronus_enterprise_pii
 
@@ -9,7 +9,6 @@ OUTPUT=annotated_patronus_enterprise_pii
 MODEL=mistralai/Mixtral-8x7B-Instruct-v0.1
 TOKENIZER=mistralai/Mixtral-8x7B-Instruct-v0.1
 MAXNEWTOKEN=256
-# MODELDIR=/mnt/disk3/minminhou/huggingface/transformers/
 
 # tensor parallel for vllm
 TP=4

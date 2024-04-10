@@ -1,21 +1,21 @@
 #!/bin/bash
 
 # dataset
-FILEDIR=/mnt/disk3/minminhou/datasets/patronus_enterprise_pii/
+FILEDIR=/home/user/workspace/datasets/patronus_enterprise_pii/
 FILENAME=annotated_patronus_enterprise_pii_train.csv
 
 # Column names for text and label columns
 TEXT=text
-LABEL=final_prediction
+LABEL=label #final_prediction
 
 # path for saving logistic regression classifier
-OUTPUT=/mnt/disk3/minminhou/saved_models/lr_clf.joblib
+OUTPUT=/home/user/workspace/saved_models/lr_clf.joblib
 
 # embedding model
 MODEL=nomic-ai/nomic-embed-text-v1
 BATCHSIZE=32
 
-python src/train_logistic_regression_classifier.py \
+python3 src/train_logistic_regression_classifier.py \
 --filedir $FILEDIR \
 --filename $FILENAME \
 --lr_clf $OUTPUT \

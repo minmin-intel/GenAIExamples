@@ -1,7 +1,7 @@
 # Business Safety Classifier
 
 ## Overview
-This folder contains a tested recipe for training a Business Safety Classifier with custom data. No human annotation is required. However, a few tens of human annotations are needed if you want to get a sense of the accuracy of the LLM annotations. We provide evaluation code to show accuracy of LLM annotations by comparing to human annotations as gold labels.
+This folder contains a tested recipe for training a Business Safety Classifier with custom data. No human annotation is required. However, a few tens of human annotations are needed if you want to get a sense of the accuracy of the LLM annotations. We provide evaluation code to show accuracy of LLM annotations by comparing to human annotations as gold labels. We also show discuss how to apply this recipe to your own data after going through the instructions on running this recipe on a public dataset.
 
 ### Use cases of Business Safety classifier
 Enterprise applications often require the output content from LLMs or RAG systems to be free of business senstive information such as private financial figures, sales accounts and confidential customer information. Another source of sensitive information that enterprises may want to exclude from LLMs and RAG output is human resources data such as employee performance reviews. A binary classifier that can detect such sensitive content is imperative in protecting business safety of enterprises running Gen AI applications.
@@ -19,57 +19,82 @@ Embedding model: ```nomic-ai/nomic-embed-text-v1```
 We showcase our recipe with the open-sourced [Patronus EnterprisePII dataset](https://www.patronus.ai/announcements/patronus-ai-launches-enterprisepii-the-industrys-first-llm-dataset-for-detecting-business-sensitive-information), which is used in MosaicML's LLM Eval Gauntlet and the [Enterprise Scenarios Leaderboard](https://huggingface.co/blog/leaderboard-patronus) on Huggingface.
 
 ## Prerequisites
+We use Docker containers so make sure you have docker installed on your system. We also expect that you have access to a Linux machine or cloud instance that has [Intel Gaudi2](https://habana.ai/products/gaudi2/) cards.
 
-Before running the scripts, make sure you have the following installed:
-
-- Python 3.x
-- Required Python packages (listed in `requirements.txt`)
-
-## Installation
-
-1. Clone this repository:
-
+1. Set up a work directory:
+In the directory where you want to work, use the following command to create the workspace directory and set up `WORKDIR` and `DATADIR` environment variables.
     ```shell
-    git clone 
+    mkdir workspace
+    export WORKDIR=workspace
+    cd workspace
+    mkdir datasets
+    mkdir datasets/patronus_enterprise_pii/
+    export DATADIR=datasets/patronus_enterprise_pii/
     ```
 
-2. Navigate to the project directory:
+2. Clone this repository into `workspace`:
+
+    ```shell
+    cd ../ #come back to workspace
+    git clone  
+    ```
+
+
+3. Download the Patronus EnterprisePII dataset to follow along the example:
+We will need to get the Patronus EnterprisePII dataset from the llm-foundry repo. You can either clone the llm-foundry repo and then copy the dataset from the repo to your data folder as shown below, or you can directly download the file by click on the "Download raw file" button.
+
+    ```shell
+    git clone https://github.com/mosaicml/llm-foundry.git
+    cp llm-foundry/scripts/eval/local_data/safety/enterprise_pii_classification.jsonl $DATADIR
+    ```
+
+4. Navigate to the project directory:
 
     ```shell
     cd BusinessSafetyClassifier
     ```
 
-3. Install the required Python packages:
-
-    ```shell
-    pip install -r requirements.txt
-    ```
-
 ## Annotate unlabeled dataset with LLM
+ Follow the steps below to annotate the Patronus EnterprisePII dataset with `mistralai/Mixtral-8x7B-Instruct-v0.1`. 
 
- Follow the steps below to annotate the Patronus EnterprisePII dataset with `mistralai/Mixtral-8x7B-Instruct-v0.1`. We also provide options to customize the recipe, see the [How to customize](#how-to-customize) section.
-
-
-1. Download the dataset
-We will need to get the Patronus EnterprisePII dataset from the llm-foundry repo. You can either clone the llm-foundry repo and then copy the dataset from the repo to your data folder as shown below, or you can directly download the file by click on the "Download raw file" button.
-
+1. Preprocess the dataset by using the `classifier` docker container. </br>
+1.1. Build and run the container
     ```shell
-    git clone https://github.com/mosaicml/llm-foundry.git
-    cp llm-foundry/scripts/eval/local_data/safety/enterprise_pii_classification.jsonl /path/to/your/data/folder/
+    cd docker
+    bash build_classifier_image.sh
     ```
+    After the image is built, run the command below to launch the container.
+    ```shell
+    bash launch_classifier_docker.sh
+    ```
+    It will take you inside the container to interactively run commands.
 
-2. Preprocess the dataset
+1.2. Run the processing script. </br>
 The preprocessing step is specific to the Patronus EnterprisePII dataset where we get the actual text components and the gold labels from the original jsonl file. </br>
 Specify the `FILEDIR`, `FILENAME` and `OUTPUT` variables in the `run_process_enterprisepii_dataset.sh` script and then run the command below.
 
     ```shell
+    cd workspace/GenAIExamples/BusinessSafetyClassifier
     bash run_process_enterprisepii_dataset.sh
     ```
+Once the data processing is finished, exit the container by typing "exit".
 
-3. Run the annotation script
-Note: Currently we use vllm's offline batch mode to run text generation on NV GPUs. We will enable this function on Gaudi platform in near future. 
+2. Run annotation on Intel Gaudi platform with `annotation-gaudi` container </br>
+2.1. Build and run the container
+    ```shell
+    cd docker
+    bash build_image.sh
+    ```
+    After the image is built, run the command below to launch the container.
+    ```shell
+    bash launch_annotation_docker.sh
+    ```
+    It will take you inside the container to interactively run commands. Behind the scene, [optimum-habana](https://github.com/huggingface/optimum-habana/tree/main) (part of Huggingface optimum) enables the LLM inference acceleration on Intel Gaudi platform.
+
+2.2. Run the annotation script
 
     ```shell
+    cd workspace/GenAIExamples/BusinessSafetyClassifier
     bash run_annotation.sh
     ```
 After the script is successfully completed, you will get three csv files with LLM annotations: 1) the whole dataset, 2) randomly sampled training set, 3) test set that is exclusive of the training set. Note: by default, the test set size is 300. If you want to change the test set size, you can change the `TESTSIZE` variable in the `run_annotation.sh` script.
@@ -84,26 +109,27 @@ For the Patronus EnterprisePII dataset, we also enabled calculation of annotatio
 | Recall    | 0.940 |
 
 
-### How to customize
-1. You can customize the prompt by editing `src/prompt_templates.py`. 
-2. You can implement custom prefilter logic in `src/filters.py`. 
-3. You can adapt our preprocessing code for your own dataset. Our preprocessing code takes a jsonl file as input and output a csv file. You can implement a custom `process_text` function in the `process_enterprise_pii_data.py` according to the specific formatting of your data.
 
-
-## Train the Business Safety classifier
+## Train and evaluate the Business Safety classifier
 Once you have obtained the annotated dataset using an LLM, you can train a classifier with the dataset. The classifier consists of two part: 1) an encoder model that converts text into embedding vectors, and 2) a logistic regression model that takes the embedding vectors as input and output prediction labels.
 
 We picked the `nomic-ai/nomic-embed-text-v1` [model](https://blog.nomic.ai/posts/nomic-embed-text-v1) as it is one of the top-performing long-context (max sequence length = 8192 vs. 512 for other BERT-based encoders) encoder models that do well on [Huggingface MTEB Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) as well as long-context [LoCo benchmark](https://hazyresearch.stanford.edu/blog/2024-01-11-m2-bert-retrieval). The long-context capability is useful when the generated content is long (>512 tokens).
 
-You can run the command below to train your classifier.
+You can run the commands below to train your classifier.
+1. Launch the `classifer` container.
     ```shell
+    bash launch_classifier_docker.sh
+    ```
+2. Run the training script.
+    ```shell
+    cd workspace/GenAIExamples/BusinessSafetyClassifier
     bash run_logistic_regression.sh
     ```
-
 After the script is successfully completed, you will get a logistic regression classifier model saved to disk.
 
-## Evaluate the classifier
-You can run the command below to evaluate the classifier trained in the previous step. Note: you can calculate accuracy metrics based on LLM-annotated labels or human-annotated labels. Just specify the column name of the labels that you want to evaluate against in the script by specifying the `LABEL` variable.
+
+Now that you have finished training the classifier. You can run the command below to evaluate the classifier trained in the previous step. Note: you can calculate accuracy metrics based on LLM-annotated labels or human-annotated labels. Just specify the column name of the labels that you want to evaluate against in the script by specifying the `LABEL` variable.
+
     ```shell
     bash run_eval.sh
     ```
@@ -116,3 +142,9 @@ For the Patronus EnterprisePII dataset, the metrics on the test set are shown be
 |Compared to LLM annotated labels|0.903|0.927|0.886|
 
 
+## Next step: apply this recipe to your own data
+1. You can adapt our preprocessing code for your own dataset. Our preprocessing code takes a jsonl file as input and output a csv file. You can implement a custom `process_text` function in the `process_enterprise_pii_data.py` according to the specific formatting of your data.
+2. You can customize the annotation prompt by editing `src/prompt_templates.py`. 
+3. You can implement custom prefilter logic in `src/filters.py`. 
+
+Enjoy and have fun!

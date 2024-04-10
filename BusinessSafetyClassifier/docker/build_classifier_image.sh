@@ -1,9 +1,9 @@
 #!/bin/bash
-dockerfile=Dockerfile
+dockerfile=Dockerfile.classifier
 
 docker build \
     -f ${dockerfile} . \
-    -t annotation-gaudi:latest \
+    -t classifier:latest \
     --network=host \
     --build-arg http_proxy=${http_proxy} \
     --build-arg https_proxy=${https_proxy} \

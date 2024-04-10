@@ -5,6 +5,7 @@ from utils import load_data_for_st_encoders, make_batches, calculate_metrics
 from sentence_transformers import SentenceTransformer
 import os
 import pandas as pd
+import tqdm
 
 class BusinessSafetyClassifier:
     def __init__(self, args):
@@ -14,10 +15,11 @@ class BusinessSafetyClassifier:
             self.clf = load(args.lr_clf)
         else:
             self.clf = None
-            print('Logistic regression classifier not initiated! Please train or load one.')
+            print('Logistic regression classifier does not exist! Please train or load one.')
         pass
     
     def train(self, args, data, labels):
+        print('Start training logistic regression classifier...')
         self.clf = LogisticRegression(random_state=args.random_seed,
                              max_iter=args.max_iter)
         self.clf.fit(data, labels)
@@ -36,13 +38,13 @@ class BusinessSafetyClassifier:
 
         eval_data, labels = load_data_for_st_encoders(args)
 
-        for batch in make_batches(eval_data, args.batch_size):
+        for batch in tqdm.tqdm(make_batches(eval_data, args.batch_size)):
             embeddings = self.model.encode(batch, convert_to_tensor=True).cpu()
-            print('text embedding shape: ', embeddings.shape)
+            # print('text embedding shape: ', embeddings.shape)
             # prediction
             predictions = self.clf.predict(embeddings)
             eval_predictions.extend(predictions)
-            print('='*50)
+            # print('='*50)
 
         # calculate accuracy, precision, recall.
         calculate_metrics(eval_predictions, labels)

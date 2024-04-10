@@ -1,0 +1,16 @@
+FROM ubuntu:22.04
+
+WORKDIR /home/user
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3  \
+    python3-pip \
+    libpoppler-cpp-dev \
+    wget \
+    git \
+    poppler-utils \
+    libmkl-dev
+
+COPY requirements.classifier.txt /home/user/requirements.classifier.txt
+
+RUN pip install -r requirements.classifier.txt
