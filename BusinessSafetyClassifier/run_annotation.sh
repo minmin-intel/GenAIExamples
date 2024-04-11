@@ -36,11 +36,11 @@ python src/annotate_data_with_llm.py \
 --use_kv_cache \
 --gaudi_lazy_mode \
 --do_sample \
-
+--use_hpu_graphs \
 
 
 #--vllm_offline \
-# --use_hpu_graphs \
+
 
 
 

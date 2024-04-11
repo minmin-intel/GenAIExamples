@@ -289,6 +289,7 @@ def setup_generation_config(args, model):
     generation_config = copy.deepcopy(model.generation_config)
     generation_config.max_new_tokens = args.max_new_tokens
     generation_config.use_cache = args.use_kv_cache
+    generation_config.ignore_eos = False
     # generation_config.static_shapes = is_optimized # is_optimized not defined
     # generation_config.bucket_size = args.bucket_size if is_optimized else -1
     generation_config.bucket_size = -1 # not using the bucket size optimization
