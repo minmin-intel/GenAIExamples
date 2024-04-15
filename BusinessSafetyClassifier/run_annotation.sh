@@ -8,13 +8,13 @@ OUTPUT=annotated_patronus_enterprise_pii
 #model
 MODEL=mistralai/Mixtral-8x7B-Instruct-v0.1
 TOKENIZER=mistralai/Mixtral-8x7B-Instruct-v0.1
-MAXNEWTOKEN=256
+MAXNEWTOKEN=100 #256
 
 # tensor parallel for vllm
 TP=4
 
 # Args for optimum habana
-BATCHSIZE=16
+BATCHSIZE=1
 
 # train test split
 TESTSIZE=300

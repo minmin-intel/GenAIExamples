@@ -10,4 +10,5 @@ docker run -it --name annotation \
 --net=host \
 --env http_proxy=${http_proxy} \
 --env https_proxy=${https_proxy} \
+--env HF_HOME=$WORKDIR \
 --ipc=host annotation-gaudi:latest

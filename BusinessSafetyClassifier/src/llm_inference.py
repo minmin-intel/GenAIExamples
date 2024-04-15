@@ -255,7 +255,7 @@ def setup_env(args):
     # check_min_version("4.34.0")
     # check_optimum_habana_min_version("1.9.0.dev0")
     # # TODO: SW-167588 - WA for memory issue in hqt prep_model
-    # os.environ.setdefault("EXPERIMENTAL_WEIGHT_SHARING", "FALSE")
+    os.environ.setdefault("EXPERIMENTAL_WEIGHT_SHARING", "FALSE")
 
     # if args.global_rank == 0 and not args.torch_compile:
     os.environ.setdefault("GRAPH_VISUALIZATION", "true")
@@ -277,6 +277,7 @@ def setup_device(args):
 
 def setup_generation_config(args, model):
     import copy
+    from optimum.habana.checkpoint_utils import model_is_optimized
     # bad_words_ids = None
     # force_words_ids = None
     # if args.bad_words is not None:
@@ -284,13 +285,13 @@ def setup_generation_config(args, model):
     # if args.force_words is not None:
     #     force_words_ids = [tokenizer.encode(force_word, add_special_tokens=False) for force_word in args.force_words]
 
-    # is_optimized = model_is_optimized(model.config)
+    is_optimized = model_is_optimized(model.config)
     # Generation configuration
     generation_config = copy.deepcopy(model.generation_config)
     generation_config.max_new_tokens = args.max_new_tokens
     generation_config.use_cache = args.use_kv_cache
     generation_config.ignore_eos = False
-    # generation_config.static_shapes = is_optimized # is_optimized not defined
+    generation_config.static_shapes = is_optimized
     # generation_config.bucket_size = args.bucket_size if is_optimized else -1
     generation_config.bucket_size = -1 # not using the bucket size optimization
     generation_config.bucket_internal = args.bucket_internal
@@ -327,23 +328,28 @@ def setup_model_optimum_habana(args):
     model = model.eval().to(args.device)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
+    if not model.config.is_encoder_decoder:
+        tokenizer.padding_side = "left"
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         model.generation_config.pad_token_id = model.generation_config.eos_token_id
 
     generation_config = setup_generation_config(args, model)
-
+    
     return model, tokenizer, generation_config
 
 
 def batch_generate_gaudi(args, text, tokenizer, model, generation_config, prompt_template):
     import habana_frameworks.torch.hpu as torch_hpu
+    torch_hpu.synchronize()
+    
     input_dataset = CustomDataset(text, tokenizer,prompt_template)
     input_dataloader = DataLoader(input_dataset, batch_size=args.batch_size)
 
     predictions = []
     reasons = []
-
+    
     for batch in tqdm.tqdm(input_dataloader):
         input_tokens = tokenizer.batch_encode_plus(batch, return_tensors="pt", padding=True) # padding has to be true otherwise error
         # input_shape = input_tokens.input_ids.shape[1]
@@ -368,7 +374,7 @@ def batch_generate_gaudi(args, text, tokenizer, model, generation_config, prompt
             decoded_txt = decoded_outputs[i]
             # print('decoded text: ', decoded_txt)
             out_dict = parse_output(decoded_txt, args)
-            # print(out_dict)
+            print(out_dict)
             predictions.append(convert_to_numeric_label(out_dict))
             reasons.append(out_dict['reason'])
             # print(predictions)
