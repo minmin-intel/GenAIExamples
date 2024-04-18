@@ -6,14 +6,12 @@ FILENAME=processed_patronus_enterprise_pii.csv
 OUTPUT=annotated_patronus_enterprise_pii
 
 #model
-MODEL=mistralai/Mixtral-8x7B-Instruct-v0.1
-TOKENIZER=mistralai/Mixtral-8x7B-Instruct-v0.1
-MAXNEWTOKEN=100 #256
+MODEL=mistralai/Mixtral-8x7B-Instruct-v0.1 #AetherResearch/Cerebrum-1.0-8x7b #
+TOKENIZER=mistralai/Mixtral-8x7B-Instruct-v0.1 #AetherResearch/Cerebrum-1.0-8x7b #
+MAX_INPUT_TOKENS=2048
+MAXNEWTOKEN=256
 
-# tensor parallel for vllm
-TP=4
-
-# Args for optimum habana
+# runtime args
 BATCHSIZE=1
 
 # train test split
@@ -23,10 +21,10 @@ python src/annotate_data_with_llm.py \
 --filedir $FILEDIR \
 --filename $FILENAME \
 --output $OUTPUT \
---model $MODEL \
+--model_name_or_path $MODEL \
 --tokenizer $TOKENIZER \
+--max_input_tokens $MAX_INPUT_TOKENS \
 --max_new_tokens $MAXNEWTOKEN \
---tp_size $TP \
 --eval_size $TESTSIZE \
 --batch_size $BATCHSIZE \
 --run_prefilters \
@@ -35,11 +33,11 @@ python src/annotate_data_with_llm.py \
 --optimum_habana \
 --use_kv_cache \
 --gaudi_lazy_mode \
---do_sample \
 --use_hpu_graphs \
+--bf16
 
 
-#--vllm_offline \
+
 
 
 

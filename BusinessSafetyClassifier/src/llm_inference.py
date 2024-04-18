@@ -342,10 +342,41 @@ def setup_model_optimum_habana(args):
 
 def batch_generate_gaudi(args, text, tokenizer, model, generation_config, prompt_template):
     import habana_frameworks.torch.hpu as torch_hpu
-    torch_hpu.synchronize()
+
+    def generate_batch(batch, generation_config, args, tokenizer):
+        input_tokens = tokenizer.batch_encode_plus(batch, return_tensors="pt", padding="max_length",
+                    max_length=args.max_input_tokens,
+                    truncation=True) # padding to same max_length to use graph mode
+        # input_shape = input_tokens.input_ids.shape[1]
+        # send data to hpu device
+        for t in input_tokens:
+            if torch.is_tensor(input_tokens[t]):
+                input_tokens[t] = input_tokens[t].to(args.device)
+        
+        outputs = model.generate(
+                    **input_tokens,
+                    generation_config=generation_config,
+                    lazy_mode=args.gaudi_lazy_mode,
+                    hpu_graphs=args.use_hpu_graphs,
+                    # profiling_steps=args.profiling_steps,
+                    # profiling_warmup_steps=args.profiling_warmup_steps,
+                ).cpu()
+        return outputs
+
     
     input_dataset = CustomDataset(text, tokenizer,prompt_template)
     input_dataloader = DataLoader(input_dataset, batch_size=args.batch_size)
+
+    # compile hpu graph
+    # Compilation
+    print("Graph compilation...")
+    for i, batch in enumerate(input_dataloader):
+        outputs = generate_batch(batch, generation_config, args, tokenizer)
+        # The first three iterations take longer because of graph compilation
+        if (i + 1) == 3:
+            break
+    torch_hpu.synchronize()
+    print('Graph compilation done.')
 
     predictions = []
     reasons = []
@@ -369,14 +400,15 @@ def batch_generate_gaudi(args, text, tokenizer, model, generation_config, prompt
         # print('Generated tokens number: ', outputs.shape[1]-input_shape)
         
         decoded_outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        print(decoded_outputs)
 
-        for i in range(len(decoded_outputs)):
-            decoded_txt = decoded_outputs[i]
-            # print('decoded text: ', decoded_txt)
-            out_dict = parse_output(decoded_txt, args)
-            print(out_dict)
-            predictions.append(convert_to_numeric_label(out_dict))
-            reasons.append(out_dict['reason'])
+        # for i in range(len(decoded_outputs)):
+        #     decoded_txt = decoded_outputs[i]
+        #     # print('decoded text: ', decoded_txt)
+        #     out_dict = parse_output(decoded_txt, args)
+        #     print(out_dict)
+        #     predictions.append(convert_to_numeric_label(out_dict))
+        #     reasons.append(out_dict['reason'])
             # print(predictions)
 
         # print(decoded_outputs)

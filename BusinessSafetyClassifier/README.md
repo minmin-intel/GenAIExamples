@@ -53,6 +53,12 @@ We will need to get the Patronus EnterprisePII dataset from the llm-foundry repo
     ```shell
     cd BusinessSafetyClassifier
     ```
+5. Set up Huggingface access token and cache directory:
+In this example, we use mistralai/Mixtral-8x7B-v0.1, which requires Huggingface access token to download from Huggingface hub. You can follow the instruction on [Huggingface website](https://huggingface.co/docs/text-embeddings-inference/en/private_models) to generate an access token, and then use the command below to set up your environment.
+```
+export HUGGING_FACE_HUB_TOKEN=<YOUR READ TOKEN>
+export HF_HOME=<path-to-your-desired-cache-directory>
+```
 
 ## Annotate unlabeled dataset with LLM
  Follow the steps below to annotate the Patronus EnterprisePII dataset with `mistralai/Mixtral-8x7B-Instruct-v0.1`. 
@@ -70,14 +76,13 @@ We will need to get the Patronus EnterprisePII dataset from the llm-foundry repo
     It will take you inside the container to interactively run commands.
 
 1.2. Run the processing script. </br>
-The preprocessing step is specific to the Patronus EnterprisePII dataset where we get the actual text components and the gold labels from the original jsonl file. </br>
-Specify the `FILEDIR`, `FILENAME` and `OUTPUT` variables in the `run_process_enterprisepii_dataset.sh` script and then run the command below.
+The preprocessing step is specific to the Patronus EnterprisePII dataset where we get the actual text components and the gold labels from the original jsonl file. Run the command below to process this dataset.
 
     ```shell
     cd workspace/GenAIExamples/BusinessSafetyClassifier
     bash run_process_enterprisepii_dataset.sh
     ```
-Once the data processing is finished, exit the container by typing "exit".
+Once the data processing is finished, open another terminal and then proceed with the steps below.
 
 2. Run annotation on Intel Gaudi platform with `annotation-gaudi` container </br>
 2.1. Build and run the container
@@ -97,9 +102,9 @@ Once the data processing is finished, exit the container by typing "exit".
     cd workspace/GenAIExamples/BusinessSafetyClassifier
     bash run_annotation.sh
     ```
-After the script is successfully completed, you will get three csv files with LLM annotations: 1) the whole dataset, 2) randomly sampled training set, 3) test set that is exclusive of the training set. Note: by default, the test set size is 300. If you want to change the test set size, you can change the `TESTSIZE` variable in the `run_annotation.sh` script.
+After the script is successfully completed, you will get three csv files with LLM annotations: 1) the whole dataset, 2) a randomly sampled training set, 3) a test set that is exclusive of the training set. Note: by default, the test set size is 300. If you want to change the test set size, you can change the `TESTSIZE` variable in the `run_annotation.sh` script.
 
-For the Patronus EnterprisePII dataset, we also enabled calculation of annotation accuracy. You should see metrics printed out that are similar to the ones listed below. Since there is randomness in LLM generation, you may not see exactly the same numbers. Randomness is introduced as to allow for re-generation of annotations if the annotation failed in the first round.
+For the Patronus EnterprisePII dataset, we also enabled calculation of annotation accuracy with respect to the golden labels in the dataset. You should see metrics printed out that are similar to the ones listed below. Since there is randomness in LLM generation, you may not see exactly the same numbers. Randomness is introduced as to allow for re-generation of annotations if the annotation failed in the first round.
 
 
 | Metric    | Value |
@@ -116,7 +121,7 @@ Once you have obtained the annotated dataset using an LLM, you can train a class
 We picked the `nomic-ai/nomic-embed-text-v1` [model](https://blog.nomic.ai/posts/nomic-embed-text-v1) as it is one of the top-performing long-context (max sequence length = 8192 vs. 512 for other BERT-based encoders) encoder models that do well on [Huggingface MTEB Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) as well as long-context [LoCo benchmark](https://hazyresearch.stanford.edu/blog/2024-01-11-m2-bert-retrieval). The long-context capability is useful when the generated content is long (>512 tokens).
 
 You can run the commands below to train your classifier.
-1. Launch the `classifer` container.
+1. Go back to the terminal where you processed the dataset. Or you can launch the `classifer` container using the command below.
     ```shell
     bash launch_classifier_docker.sh
     ```
@@ -128,22 +133,22 @@ You can run the commands below to train your classifier.
 After the script is successfully completed, you will get a logistic regression classifier model saved to disk.
 
 
-Now that you have finished training the classifier. You can run the command below to evaluate the classifier trained in the previous step. Note: you can calculate accuracy metrics based on LLM-annotated labels or human-annotated labels. Just specify the column name of the labels that you want to evaluate against in the script by specifying the `LABEL` variable.
+Now that you have finished training the classifier. You can run the command below to evaluate the classifier trained in the previous step. Note: you can calculate accuracy metrics with respect to either LLM-annotated labels or human-annotated labels (if you have human annotations). Just specify the column name of the labels that you want to evaluate against in the script by specifying the `LABEL` variable.
 
     ```shell
     bash run_eval.sh
     ```
 
-For the Patronus EnterprisePII dataset, the metrics on the test set are shown below. Interestingly, the classifier performed perfectly on the 300 test samples when using the gold labels in the original dataset as the reference, while it achieves very good accuracy (around 0.9) when using the LLM annotations as reference.
+For the Patronus EnterprisePII dataset, the metrics on the test set are shown below. Interestingly, although the classifier was trained with LLM-annotated labels, the classifier performed perfectly on the 300 test samples when using the golden labels in the original dataset as the reference, while it achieves slighlty lower but still very good accuracy (around 0.9) when using the LLM annotations as reference.
 
 | |Accuracy|Precision|Recall|
 |--|-------|---------|------|
-|Compared to gold labels|1.0|1.0|1.0|
+|Compared to golden labels|1.0|1.0|1.0|
 |Compared to LLM annotated labels|0.903|0.927|0.886|
 
 
 ## Next step: apply this recipe to your own data
-1. You can adapt our preprocessing code for your own dataset. Our preprocessing code takes a jsonl file as input and output a csv file. You can implement a custom `process_text` function in the `process_enterprise_pii_data.py` according to the specific formatting of your data.
+1. You can adapt our preprocessing code for your own dataset. Our preprocessing code takes a jsonl file as input and outputs a csv file. You can implement a custom `process_text` function in the `process_enterprise_pii_data.py` according to the specific formatting of your data.
 2. You can customize the annotation prompt by editing `src/prompt_templates.py`. 
 3. You can implement custom prefilter logic in `src/filters.py`. 
 

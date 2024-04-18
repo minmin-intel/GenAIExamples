@@ -4,6 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from prompt_templates import PROMPT_BUSINESS_SENSITIVE
+import os
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -20,7 +21,11 @@ def get_args():
     )
 
     parser.add_argument(
-        "--model", type=str, default="", help="model to be used"
+        "--model_name_or_path",
+        default=None,
+        type=str,
+        required=True,
+        help="Path to pre-trained model (on the HF Hub or locally).",
     )
 
     parser.add_argument(
@@ -154,6 +159,23 @@ def get_args():
 
     # args for text generation with optimum habana
     parser.add_argument(
+        "--bf16",
+        action="store_true",
+        help="Whether to perform generation in bf16 precision.",
+    )
+    
+    parser.add_argument(
+        "--max_input_tokens",
+        type=int,
+        default=0,
+        help="If > 0 then pad and truncate the input sequences to this specified length of tokens. \
+            if == 0, then truncate to 16 (original default) \
+            if < 0, then do not truncate, use full input prompt",
+    )
+    parser.add_argument("--warmup", type=int, default=3, help="Number of warmup iterations for benchmarking.")
+    parser.add_argument("--n_iterations", type=int, default=5, help="Number of inference iterations for benchmarking.")
+    parser.add_argument("--local_rank", type=int, default=0, metavar="N", help="Local process rank.")
+    parser.add_argument(
         "--use_kv_cache",
         action="store_true",
         help="Whether to use the key/value cache for decoding. It should speed up generation.",
@@ -163,6 +185,7 @@ def get_args():
         action="store_true",
         help="Whether to use HPU graphs or not. Using HPU graphs should give better latencies.",
     )
+
     parser.add_argument(
         "--do_sample",
         action="store_true",
@@ -180,6 +203,66 @@ def get_args():
         help="Calculate logits only for the last token to save memory in the first step.",
     )
     parser.add_argument(
+        "--seed",
+        default=27,
+        type=int,
+        help="Seed to use for random generation. Useful to reproduce your runs with `--do_sample`.",
+    )
+    parser.add_argument(
+        "--profiling_warmup_steps",
+        default=0,
+        type=int,
+        help="Number of steps to ignore for profiling.",
+    )
+    parser.add_argument(
+        "--profiling_steps",
+        default=0,
+        type=int,
+        help="Number of steps to capture for profiling.",
+    )
+    
+    parser.add_argument(
+        "--bad_words",
+        default=None,
+        type=str,
+        nargs="+",
+        help="Optional argument list of words that are not allowed to be generated.",
+    )
+    parser.add_argument(
+        "--force_words",
+        default=None,
+        type=str,
+        nargs="+",
+        help="Optional argument list of words that must be generated.",
+    )
+    parser.add_argument(
+        "--peft_model",
+        default=None,
+        type=str,
+        help="Optional argument to give a path to a PEFT model.",
+    )
+    parser.add_argument("--num_return_sequences", type=int, default=1)
+    parser.add_argument(
+        "--token",
+        default=None,
+        type=str,
+        help="The token to use as HTTP bearer authorization for remote files. If not specified, will use the token "
+        "generated when running `huggingface-cli login` (stored in `~/.huggingface`).",
+    )
+    parser.add_argument(
+        "--model_revision",
+        default="main",
+        type=str,
+        help="The specific model version to use (can be a branch name, tag name or commit id).",
+    )
+    parser.add_argument(
+        "--attn_softmax_bf16",
+        action="store_true",
+        help="Whether to run attention softmax layer in lower precision provided that the model supports it and "
+        "is also running in lower precision.",
+    )
+    
+    parser.add_argument(
         "--bucket_size",
         default=-1,
         type=int,
@@ -192,11 +275,32 @@ def get_args():
         action="store_true",
         help="Split kv sequence into buckets in decode phase. It improves throughput when max_new_tokens is large.",
     )
+    
+    parser.add_argument(
+        "--limit_hpu_graphs",
+        action="store_true",
+        help="Skip HPU Graph usage for first token to save memory",
+    )
     parser.add_argument(
         "--reuse_cache",
         action="store_true",
         help="Whether to reuse key/value cache for decoding. It should save memory.",
     )
+    parser.add_argument("--verbose_workers", action="store_true", help="Enable output from non-master workers")
+    parser.add_argument(
+        "--simulate_dyn_prompt",
+        default=None,
+        type=int,
+        nargs="*",
+        help="If empty, static prompt is used. If a comma separated list of integers is passed, we warmup and use those shapes for prompt length.",
+    )
+    parser.add_argument(
+        "--reduce_recompile",
+        action="store_true",
+        help="Preprocess on cpu, and some other optimizations. Useful to prevent recompilations when using dynamic prompts (simulate_dyn_prompt)",
+    )
+
+    parser.add_argument("--fp8", action="store_true", help="Enable Quantization to fp8")
     parser.add_argument(
         "--use_flash_attention",
         action="store_true",
@@ -212,12 +316,26 @@ def get_args():
         action="store_true",
         help="Whether to enable Habana Flash Attention in causal mode on first token generation.",
     )
+    
     parser.add_argument(
-        "--attn_softmax_bf16",
+        "--torch_compile",
         action="store_true",
-        help="Whether to run attention softmax layer in lower precision provided that the model supports it and "
-        "is also running in lower precision.",
+        help="Whether to use torch compiled model or not.",
     )
+    
+    parser.add_argument(
+        "--const_serialization_path",
+        "--csp",
+        type=str,
+        help="Path to serialize const params. Const params will be held on disk memory instead of being allocated on host memory.",
+    )
+
+    parser.add_argument(
+        "--disk_offload",
+        action="store_true",
+        help="Whether to enable device map auto. In case no space left on cpu, weights will be offloaded to disk.",
+    )
+    
     parser.add_argument(
         "--gaudi_lazy_mode",
         action="store_true",
@@ -225,6 +343,15 @@ def get_args():
     )
 
     args = parser.parse_args()
+
+    if args.torch_compile:
+        args.use_hpu_graphs = False
+
+    if not args.use_hpu_graphs:
+        args.limit_hpu_graphs = False
+
+    args.quant_config = os.getenv("QUANT_CONFIG", "")
+
     return args
 
 def add_prefix(text_batch, prefix):
@@ -294,5 +421,9 @@ class CustomDataset(Dataset):
         return prompt
 
 
+def setup_dataloader(args, text, tokenizer, prompt_template):
+    input_dataset = CustomDataset(text, tokenizer,prompt_template)
+    input_dataloader = DataLoader(input_dataset, batch_size=args.batch_size)
+    return input_dataloader
 
 

@@ -7,7 +7,8 @@ import time
 from utils import get_args
 from utils import calculate_metrics
 # from llm_inference import setup_vllm, vllm_batched_offline_generation
-from llm_inference import generate_with_tgi, batch_generate_gaudi, setup_model_optimum_habana
+# from llm_inference import generate_with_tgi, batch_generate_gaudi, setup_model_optimum_habana
+from text_gen_optimum_habana import text_gen_optimum_habana
 
 from prompt_templates import PROMPT_BUSINESS_SENSITIVE, PROMPT_PERSONAL_SENSITIVE
 from filters import run_filters
@@ -24,7 +25,7 @@ def rerun_failed_queries(df, label_col, reason_col, args, llm, prompt_template):
             predictions, reasons = vllm_batched_offline_generation(args, llm, text, prompt_template)
         elif args.optimum_habana:
             tokenizer, model, generation_config = llm
-            predictions, reasons = batch_generate_gaudi(args, text, tokenizer, model, generation_config, prompt_template)
+            predictions, reasons = text_gen_optimum_habana(args, text, prompt_template)
         else:
             raise ValueError('only support vllm and optimum_habana for now')
         # compare the new run results vs the previous run results
@@ -106,12 +107,13 @@ def main():
         inputs, labels, predictions, reasons = generate_with_tgi(args, text, labels)
         
     elif args.optimum_habana == True:
-        model, tokenizer, generation_config = setup_model_optimum_habana(args)
+        # model, tokenizer, generation_config = setup_model_optimum_habana(args)
         t0 = time.time()
-        predictions_biz, reasons_biz = batch_generate_gaudi(args, text, tokenizer, model, generation_config, PROMPT_BUSINESS_SENSITIVE)
+        # predictions_biz, reasons_biz = batch_generate_gaudi(args, text, tokenizer, model, generation_config, PROMPT_BUSINESS_SENSITIVE)
+        predictions_biz, reasons_biz = text_gen_optimum_habana(args, text, PROMPT_BUSINESS_SENSITIVE)
         t1 = time.time()
         print('time to run {} samples (bs = {}): {:.3f} sec'.format(len(text), args.batch_size, t1-t0))
-        predictions_personal, reasons_personal = batch_generate_gaudi(args, text, tokenizer, model, generation_config, PROMPT_PERSONAL_SENSITIVE)
+        predictions_personal, reasons_personal = text_gen_optimum_habana(args, text, PROMPT_PERSONAL_SENSITIVE)
         t2 = time.time()
         print('time to run {} samples (bs = {}): {:.3f} sec'.format(len(text), args.batch_size, t2-t1))
     else:
