@@ -55,16 +55,15 @@ We will need to get the Patronus EnterprisePII dataset from the llm-foundry repo
     ```
 5. Set up Huggingface access token and cache directory:
 In this example, we use mistralai/Mixtral-8x7B-v0.1, which requires Huggingface access token to download from Huggingface hub. You can follow the instruction on [Huggingface website](https://huggingface.co/docs/text-embeddings-inference/en/private_models) to generate an access token, and then use the command below to set up your environment.
-```
-export HUGGING_FACE_HUB_TOKEN=<YOUR READ TOKEN>
-export HF_HOME=<path-to-your-desired-cache-directory>
-```
+    ```
+    export HUGGING_FACE_HUB_TOKEN=<YOUR READ TOKEN>
+    export HF_HOME=<path-to-your-desired-cache-directory>
+    ```
 
-## Annotate unlabeled dataset with LLM
+## Preprocess dataset
  Follow the steps below to annotate the Patronus EnterprisePII dataset with `mistralai/Mixtral-8x7B-Instruct-v0.1`. 
 
-1. Preprocess the dataset by using the `classifier` docker container. </br>
-1.1. Build and run the container
+1. Build and run the `classifier` docker container.
     ```shell
     cd docker
     bash build_classifier_image.sh
@@ -75,17 +74,17 @@ export HF_HOME=<path-to-your-desired-cache-directory>
     ```
     It will take you inside the container to interactively run commands.
 
-1.2. Run the processing script. </br>
+2. Run the preprocessing script.
 The preprocessing step is specific to the Patronus EnterprisePII dataset where we get the actual text components and the gold labels from the original jsonl file. Run the command below to process this dataset.
 
-    ```shell
+    ```
     cd workspace/GenAIExamples/BusinessSafetyClassifier
     bash run_process_enterprisepii_dataset.sh
     ```
 Once the data processing is finished, open another terminal and then proceed with the steps below.
 
-2. Run annotation on Intel Gaudi platform with `annotation-gaudi` container </br>
-2.1. Build and run the container
+## Annotate dataset with LLM
+1. Build and run the `annotation-gaudi` container.
     ```shell
     cd docker
     bash build_image.sh
@@ -96,9 +95,9 @@ Once the data processing is finished, open another terminal and then proceed wit
     ```
     It will take you inside the container to interactively run commands. Behind the scene, [optimum-habana](https://github.com/huggingface/optimum-habana/tree/main) (part of Huggingface optimum) enables the LLM inference acceleration on Intel Gaudi platform.
 
-2.2. Run the annotation script
+2. Run the annotation script.
 
-    ```shell
+    ```
     cd workspace/GenAIExamples/BusinessSafetyClassifier
     bash run_annotation.sh
     ```
@@ -114,14 +113,13 @@ For the Patronus EnterprisePII dataset, we also enabled calculation of annotatio
 | Recall    | 0.940 |
 
 
-
 ## Train and evaluate the Business Safety classifier
 Once you have obtained the annotated dataset using an LLM, you can train a classifier with the dataset. The classifier consists of two part: 1) an encoder model that converts text into embedding vectors, and 2) a logistic regression model that takes the embedding vectors as input and output prediction labels.
 
 We picked the `nomic-ai/nomic-embed-text-v1` [model](https://blog.nomic.ai/posts/nomic-embed-text-v1) as it is one of the top-performing long-context (max sequence length = 8192 vs. 512 for other BERT-based encoders) encoder models that do well on [Huggingface MTEB Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) as well as long-context [LoCo benchmark](https://hazyresearch.stanford.edu/blog/2024-01-11-m2-bert-retrieval). The long-context capability is useful when the generated content is long (>512 tokens).
 
 You can run the commands below to train your classifier.
-1. Go back to the terminal where you processed the dataset. Or you can launch the `classifer` container using the command below.
+1. Go back to the terminal where you preprocessed the dataset. Or you can launch the `classifer` container using the command below.
     ```shell
     bash launch_classifier_docker.sh
     ```
@@ -133,9 +131,9 @@ You can run the commands below to train your classifier.
 After the script is successfully completed, you will get a logistic regression classifier model saved to disk.
 
 
-Now that you have finished training the classifier. You can run the command below to evaluate the classifier trained in the previous step. Note: you can calculate accuracy metrics with respect to either LLM-annotated labels or human-annotated labels (if you have human annotations). Just specify the column name of the labels that you want to evaluate against in the script by specifying the `LABEL` variable.
+3. Now that you have finished training the classifier. You can run the command below to evaluate the classifier trained in the previous step. Note: you can calculate accuracy metrics with respect to either LLM-annotated labels or human-annotated labels (if you have human annotations). Just specify the column name of the labels that you want to evaluate against in the script by specifying the `LABEL` variable.
 
-    ```shell
+    ```
     bash run_eval.sh
     ```
 
