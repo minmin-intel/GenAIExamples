@@ -7,8 +7,7 @@ import time
 from utils import get_args
 from utils import calculate_metrics
 # from llm_inference import setup_vllm, vllm_batched_offline_generation
-# from llm_inference import generate_with_tgi, batch_generate_gaudi, setup_model_optimum_habana
-from text_gen_optimum_habana import text_gen_optimum_habana
+from text_gen_optimum_habana import text_gen_optimum_habana, setup_model_optimum_habana
 
 from prompt_templates import PROMPT_BUSINESS_SENSITIVE, PROMPT_PERSONAL_SENSITIVE
 from filters import run_filters
@@ -25,7 +24,7 @@ def rerun_failed_queries(df, label_col, reason_col, args, llm, prompt_template):
             predictions, reasons = vllm_batched_offline_generation(args, llm, text, prompt_template)
         elif args.optimum_habana:
             tokenizer, model, generation_config = llm
-            predictions, reasons = text_gen_optimum_habana(args, text, prompt_template)
+            predictions, reasons = text_gen_optimum_habana(args, text, prompt_template, model, tokenizer, generation_config)
         else:
             raise ValueError('only support vllm and optimum_habana for now')
         # compare the new run results vs the previous run results
@@ -96,28 +95,27 @@ def main():
         print('Total time to run text generation for personal sensitive: {:.3f} sec'.format(t2-t1))
         print('Total time to run text generation: {:.3f} sec'.format(t2-t0))
 
-    elif args.tgi_concurrent == True:
-        if args.has_gold_label == True:
-            labels = df[args.label_col]
-        else:
-            labels = None
-        # TODO ####################
-        # need to re-align samples with gold labels
-        # add arg: has_gold_label
-        inputs, labels, predictions, reasons = generate_with_tgi(args, text, labels)
+    # elif args.tgi_concurrent == True:
+    #     if args.has_gold_label == True:
+    #         labels = df[args.label_col]
+    #     else:
+    #         labels = None
+    #     # TODO ####################
+    #     # need to re-align samples with gold labels
+    #     # add arg: has_gold_label
+    #     inputs, labels, predictions, reasons = generate_with_tgi(args, text, labels)
         
     elif args.optimum_habana == True:
-        # model, tokenizer, generation_config = setup_model_optimum_habana(args)
+        model, tokenizer, generation_config = setup_model_optimum_habana(args, text, PROMPT_BUSINESS_SENSITIVE)
         t0 = time.time()
-        # predictions_biz, reasons_biz = batch_generate_gaudi(args, text, tokenizer, model, generation_config, PROMPT_BUSINESS_SENSITIVE)
-        predictions_biz, reasons_biz = text_gen_optimum_habana(args, text, PROMPT_BUSINESS_SENSITIVE)
+        predictions_biz, reasons_biz = text_gen_optimum_habana(args, text, PROMPT_BUSINESS_SENSITIVE, model, tokenizer, generation_config)
         t1 = time.time()
         print('time to run {} samples (bs = {}): {:.3f} sec'.format(len(text), args.batch_size, t1-t0))
-        predictions_personal, reasons_personal = text_gen_optimum_habana(args, text, PROMPT_PERSONAL_SENSITIVE)
+        predictions_personal, reasons_personal = text_gen_optimum_habana(args, text, PROMPT_PERSONAL_SENSITIVE, model, tokenizer, generation_config)
         t2 = time.time()
         print('time to run {} samples (bs = {}): {:.3f} sec'.format(len(text), args.batch_size, t2-t1))
     else:
-        raise ValueError('Currently only vllm_offline, tgi_concurrent and optimum_habana are supported!')
+        raise ValueError('Currently only vllm_offline and optimum_habana are supported!')
 
     # save results
     df['prediction_biz'] = predictions_biz

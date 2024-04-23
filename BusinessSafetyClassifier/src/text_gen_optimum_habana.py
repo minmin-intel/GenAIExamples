@@ -9,7 +9,7 @@ from utils import setup_dataloader
 from llm_inference import parse_output, convert_to_numeric_label
 
 
-def setup_model_optimum_habana(args):
+def setup_model_optimum_habana(args, text, prompt_template):
     logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     datefmt="%m/%d/%Y %H:%M:%S",
@@ -20,7 +20,12 @@ def setup_model_optimum_habana(args):
     model, tokenizer, generation_config = initialize_model(args, logger)
     generation_config.ignore_eos=False
 
+    dataloader = setup_dataloader(args, text, tokenizer, prompt_template)
+    
+    complie_graph(dataloader, args, model, tokenizer,generation_config)
+
     return model, tokenizer, generation_config
+  
 
 
 def batch_generate_optimum_habana(args, batch, model, tokenizer,generation_config):
@@ -49,6 +54,7 @@ def complie_graph(dataloader, args, model, tokenizer,generation_config):
     # HabanaProfile.disable()
     # Compilation
     # logger.info("Graph compilation...")
+    print('Compiling graph...')
     t0 = time.perf_counter()
     for i, batch in enumerate(dataloader):
         batch_generate_optimum_habana(args, batch, model, tokenizer,generation_config)
@@ -63,16 +69,11 @@ def complie_graph(dataloader, args, model, tokenizer,generation_config):
 
 
 
-
-def text_gen_optimum_habana(args, text, prompt_template):
-    model, tokenizer, generation_config = setup_model_optimum_habana(args)
-    
-    dataloader = setup_dataloader(args, text, tokenizer, prompt_template)
-
-    complie_graph(dataloader, args, model, tokenizer,generation_config)
-
+def text_gen_optimum_habana(args, text, prompt_template, model, tokenizer, generation_config):
     predictions = []
     reasons = []
+
+    dataloader = setup_dataloader(args, text, tokenizer, prompt_template)
 
     for batch in tqdm.tqdm(dataloader):
         outputs = batch_generate_optimum_habana(args, batch, model, tokenizer,generation_config)
