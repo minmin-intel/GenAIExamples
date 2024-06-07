@@ -302,10 +302,10 @@ def setup_tokenizer(args, model):
         tokenizer.padding_side = "left"
     # Some models like GPT2 do not have a PAD token so we have to set it if necessary
     if model.config.model_type == "llama":
-        # unwind broken decapoda-research config
-        model.generation_config.pad_token_id = 0
-        model.generation_config.bos_token_id = 1
-        model.generation_config.eos_token_id = 2
+        # # unwind broken decapoda-research config
+        model.generation_config.pad_token_id = 128009 # same as eos token, llama3
+        model.generation_config.bos_token_id = 128000 # llama3
+        model.generation_config.eos_token_id = 128009 # llama3
         tokenizer.bos_token_id = model.generation_config.bos_token_id
         tokenizer.eos_token_id = model.generation_config.eos_token_id
         tokenizer.pad_token_id = model.generation_config.pad_token_id
@@ -316,6 +316,10 @@ def setup_tokenizer(args, model):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         model.generation_config.pad_token_id = model.generation_config.eos_token_id
+        
+    print("eos token id: ", model.generation_config.eos_token_id)
+    print("bos token id: ", model.generation_config.bos_token_id)
+    print("pad token id: ", model.generation_config.pad_token_id)
     return tokenizer, model
 
 

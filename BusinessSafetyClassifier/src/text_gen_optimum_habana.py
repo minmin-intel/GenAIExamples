@@ -31,6 +31,7 @@ def setup_model_optimum_habana(args, text, prompt_template):
 def batch_generate_optimum_habana(args, batch, model, tokenizer,generation_config):
     # Move inputs to target device(s)
     batch = tokenizer.batch_encode_plus(batch, return_tensors="pt", padding="max_length", truncation=True, max_length=2048)
+    # print(batch)
     for t in batch:
         if torch.is_tensor(batch[t]):
             # print(batch[t].shape)
@@ -76,12 +77,13 @@ def text_gen_optimum_habana(args, text, prompt_template, model, tokenizer, gener
     dataloader = setup_dataloader(args, text, tokenizer, prompt_template)
 
     for batch in tqdm.tqdm(dataloader):
+        print(batch)
         outputs = batch_generate_optimum_habana(args, batch, model, tokenizer,generation_config)
         # print(outputs)
 
         for i in range(len(outputs)):
             decoded_txt = outputs[i]
-            # print('decoded text: ', decoded_txt)
+            print('decoded text: ', decoded_txt)
             out_dict = parse_output(decoded_txt, args)
             print(out_dict)
             predictions.append(convert_to_numeric_label(out_dict))
