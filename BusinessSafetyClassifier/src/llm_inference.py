@@ -30,10 +30,13 @@ def clean_output(string, random_choice=True):
 def parse_output(output, args = None):
     try:
         if args.vllm_offline == False:
-            output = output.split('[/INST]')[-1].strip(" ").strip("</s>")
+            if "mistral" in args.model_name_or_path.lower():
+                output = output.split('[/INST]')[-1].strip(" ").strip("</s>")
+            elif "llama-3" in args.model_name_or_path.lower():
+                output = output.split('JSON response:')[-1]
         if args.optimum_habana == True:
-            output = output.split('}')[0].strip()
-            output = output+'}'
+            output = output.split('}')[0].split('{')[-1].strip()
+            output = '{'+output+'}'
         output_dict = json.loads(output)
         # print(output_dict)
     except Exception as e:

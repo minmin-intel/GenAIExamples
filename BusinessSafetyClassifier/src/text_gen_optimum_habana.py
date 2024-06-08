@@ -77,15 +77,15 @@ def text_gen_optimum_habana(args, text, prompt_template, model, tokenizer, gener
     dataloader = setup_dataloader(args, text, tokenizer, prompt_template)
 
     for batch in tqdm.tqdm(dataloader):
-        print(batch)
+        # print(batch)
         outputs = batch_generate_optimum_habana(args, batch, model, tokenizer,generation_config)
         # print(outputs)
 
         for i in range(len(outputs)):
             decoded_txt = outputs[i]
-            print('decoded text: ', decoded_txt)
+            # print('decoded text: ', decoded_txt)
             out_dict = parse_output(decoded_txt, args)
-            print(out_dict)
+            # print('parsed output: ',out_dict)
             predictions.append(convert_to_numeric_label(out_dict))
             reasons.append(out_dict['reason'])
             # print(predictions)
