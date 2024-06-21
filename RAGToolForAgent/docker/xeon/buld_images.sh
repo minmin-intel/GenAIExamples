@@ -10,3 +10,9 @@ docker build --no-cache -t opea/llm-tgi:latest --build-arg https_proxy=$https_pr
 # dataprep
 docker build --no-cache -t opea/dataprep-redis:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/dataprep/redis/langchain/docker/Dockerfile .
 
+# reranking for ragtool
+docker build --no-cache -t opea/reranking-rag:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/reranks/langchain/docker/Dockerfile_for_ragtool .
+
+
+# reranking for retrievaltool
+docker build --no-cache -t opea/reranking-retrieval:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/reranks/langchain/docker/Dockerfile_for_retrieval_tool .
