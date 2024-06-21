@@ -1,0 +1,69 @@
+{
+  "name":"retrieval_KB1",
+  "description":"Retrieve documents that are most relevant to query from KB1",
+  "callable_api":"http://10.23.45.6:8889/v1/retrievaltool",
+  "args_schema":[
+    {
+      "name":"query",
+      "type":"string",
+      "description":"The query to be used for retrieval"
+    },
+    {
+      "name":"top_k",
+      "type":"int",
+      "description":"The number of documents to retrieve"
+    }
+  ]
+}
+{
+  "name":"retrieval_KB2",
+  "description":"Retrieve documents that are most relevant to query from KB2",
+  "callable_api":"http://",
+  "args_schema":[
+    {
+      "name":"query",
+      "type":"string",
+      "description":"The query to be used for retrieval"
+    },
+    {
+      "name":"top_k",
+      "type":"int",
+      "description":"The number of documents to retrieve"
+    }]
+}
+{
+  "name":"search",
+  "description":"use Tavily to search the web",
+  "callable_api":"langchain.community.search",
+  "args_schema":[
+    {
+      "name":"query",
+      "type":"string",
+      "description":"The query to be used for retrieval"
+    }
+  ]
+}
+
+{
+  "name":"get_trade_info",
+  "description":"Get trade information for a stock",
+  "callable_api":"custom_tools.py:get_trade_info",
+  "args_schema":[
+    {
+      "name":"ticker",
+      "type":"string",
+      "description":"The ticker of the stock to get trade information for"
+    },
+    {
+      "name":"start_date",
+      "type":"string",
+      "description":"The start date of the trade information"
+    },
+    {
+      "name":"end_date",
+      "type":"string",
+      "description":"The end date of the trade information"
+    }
+  ]
+}
+      
