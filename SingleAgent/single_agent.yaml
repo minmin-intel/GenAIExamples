@@ -79,6 +79,21 @@ opea_micro_services:
     environment:
       - CHAT_BASE_URL=${BACKEND_SERVICE_ENDPOINT}
       - UPLOAD_FILE_BASE_URL=${DATAPREP_SERVICE_ENDPOINT}
+  asr:
+    host: ${ASR_SERVICE_HOST_IP}
+    ports: ${ASR_SERVICE_PORT}
+    image: opea/asr:latest
+    endpoint: /v1/asr
+  tts:
+    host: ${TTS_SERVICE_HOST_IP}
+    ports: ${TTS_SERVICE_PORT}
+    image: opea/tts:latest
+    endpoint: /v1/tts
+  guardrail:
+    host: ${GUARDRAIL_SERVICE_HOST_IP}
+    ports: ${GUARDRAIL_SERVICE_PORT}
+    image: opea/guardrail:latest
+    endpoint: /v1/guardrail
   agent: # logic written as python code inside microservice, which calls other microservices or megaservices endpoints
     host: ${AGENT_SERVICE_HOST_IP}
     ports: ${AGENT_SERVICE_PORT}
@@ -102,3 +117,12 @@ opea_mega_services:
     endpoint: /v1/retrievaltool
     mega_flow:
       - embedding >> retrieval-KB2 >> reranking
+
+  audio_agent:
+    host: ${MEGA_SERVICE_HOST_IP3}
+    ports: ${MEGA_SERVICE_PORT3}
+    image: opea/audio-agent:latest
+    endpoint: /v1/audio-agent
+    mega_flow:
+      - asr >> guardrail >> agent >> guardrail >> tts
+      
