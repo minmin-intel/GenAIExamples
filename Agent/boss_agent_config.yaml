@@ -1,10 +1,10 @@
-agent:
+boss_agent:
   strategy: plan-execute #options: react, plan-execute
   model_id: meta-llama/Meta-Llama-3-70B-Instruct
   llm_endpoint_url: http://${host_ip}:${port}/v1/chat/completions
   llm_engine: tgi #options: tgi, vllm, openai
   recursion_limit: 20
   require_human_feedback: true
-  is_coordinator: true
+  role: supervisor #options: supervisor, worker
   role_description: "Helpful assistant adept at answering financial questions."
-  tools: tools.yaml # options: tools.yaml, tools.py
+  tools: boss_agent_tools.yaml # options: tools.yaml, tools.py

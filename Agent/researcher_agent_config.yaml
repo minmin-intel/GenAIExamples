@@ -1,0 +1,10 @@
+researcher:
+  strategy: react
+  model_id: mistralai/Mistral-7B-Instruct-v0.3
+  llm_endpoint_url: http://${host_ip2}:${port2}/v1/chat/completions
+  llm_engine: tgi #options: tgi, vllm, openai
+  recursion_limit: 20
+  require_human_feedback: false
+  role: worker
+  role_description: "The researcher is responsible for providing accurate and relevant information to the user. The researcher will use the latest research and data to answer the user's questions and provide valuable insights."
+  tools: researcher_tools.yaml

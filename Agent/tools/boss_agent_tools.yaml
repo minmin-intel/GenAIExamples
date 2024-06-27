@@ -1,0 +1,29 @@
+researcher_agent:
+  description: agent worker excel at research different topics
+  callable_api: ${agent1_endpoint}
+  args_schema:
+    query:
+      type: str
+      description: research task sent to researcher agent
+  return_output: result
+  require_human_authorization: false
+
+writer_agent:
+  description: agent worker excel at writing reports
+  callable_api: ${agent2_endpoint}
+  args_schema:
+    query:
+      type: str
+      description: writing task sent to writer agent
+  return_output: result
+  require_human_authorization: false
+
+reviewer_agent:
+  description: agent worker excel at critiqueing reports and providing helpful feedback
+  callable_api: ${agent3_endpoint}
+  args_schema:
+    query:
+      type: str
+      description: review task sent to reviewer agent
+  return_output: result
+  require_human_authorization: false

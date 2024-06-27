@@ -1,0 +1,19 @@
+duckduckgo_search:
+  description: search the web with duckduckgo
+  callable_api: langchain_community.tools.DuckDuckGoSearchRun
+  args_schema:
+    query:
+      type: str
+      description: user query
+  return_output: search_result
+  require_human_authorization: false
+
+propriety_info_retrieval:
+  description: Retrieves the propriety information for the given entity
+  callable_api: http://localhost:9090/v1/rag_retrieval
+  args_schema:
+    query:
+      type: str
+      description: Question query to get related propriety information
+  return_output: propriety_info
+  require_human_authorization: true

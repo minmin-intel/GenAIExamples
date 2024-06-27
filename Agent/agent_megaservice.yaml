@@ -94,11 +94,49 @@ opea_micro_services:
     ports: ${GUARDRAIL_SERVICE_PORT}
     image: opea/guardrail:latest
     endpoint: /v1/guardrail
-  agent: # logic written as python code inside microservice, which calls other microservices or megaservices endpoints
-    host: ${AGENT_SERVICE_HOST_IP}
-    ports: ${AGENT_SERVICE_PORT}
+  agent1: # logic written as python code inside microservice, which calls other microservices or megaservices endpoints
+    host: ${AGENT_SERVICE_HOST_IP1}
+    ports: ${AGENT_SERVICE_PORT1}
     image: opea/agent:latest
     endpoint: /v1/agent
+    env_file: agent1_env_file
+  agent2:
+    host: ${AGENT_SERVICE_HOST_IP2}
+    ports: ${AGENT_SERVICE_PORT2}
+    image: opea/agent:latest
+    endpoint: /v1/agent
+    env_file: agent2_env_file
+  agent3:
+    host: ${AGENT_SERVICE_HOST_IP3}
+    ports: ${AGENT_SERVICE_PORT3}
+    image: opea/agent:latest
+    endpoint: /v1/agent
+    env_file: agent3_env_file
+  agent4:
+    host: ${AGENT_SERVICE_HOST_IP4}
+    ports: ${AGENT_SERVICE_PORT4}
+    image: opea/agent:latest
+    endpoint: /v1/agent
+    env_file: agent4_env_file
+  supervisor_agent1:
+    host: ${SUPERVISOR_AGENT_SERVICE_HOST_IP1}
+    ports: ${SUPERVISOR_AGENT_SERVICE_PORT1}
+    image: opea/agent:latest
+    endpoint: /v1/agent
+    env_file: supervisor_agent1_env_file
+  supervisor_agent2:
+    host: ${SUPERVISOR_AGENT_SERVICE_HOST_IP2}
+    ports: ${SUPERVISOR_AGENT_SERVICE_PORT2}
+    image: opea/agent:latest
+    endpoint: /v1/agent
+    env_file: supervisor_agent2_env_file
+  boss_agent:
+    host: ${BOSS_AGENT_SERVICE_HOST_IP}
+    ports: ${BOSS_AGENT_SERVICE_PORT}
+    image: opea/agent:latest
+    endpoint: /v1/agent
+    env_file: boss_agent_env_file
+
 
 # proposal for changes to mega-services:
 opea_mega_services: 
@@ -124,5 +162,5 @@ opea_mega_services:
     image: opea/audio-agent:latest
     endpoint: /v1/audio-agent
     mega_flow:
-      - asr >> guardrail >> agent >> guardrail >> tts
+      - asr >> guardrail >> boss_agent >> guardrail >> tts
       
