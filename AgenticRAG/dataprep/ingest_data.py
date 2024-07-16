@@ -69,19 +69,24 @@ def ingest_data_to_redis(doc_path: DocPath):
             # chunk if needed
             # for now, we don't chunk the document
             chunks.append(doc)
+            print(f"doc: {doc}")
+            print('-'*50)
     #========================================
 
     # Create vectorstore
     if tei_embedding_endpoint:
         # create embeddings using TEI endpoint service
+        print('Using TEI endpoint.')
         embedder = HuggingFaceHubEmbeddings(model=tei_embedding_endpoint)
     else:
         # create embeddings using local embedding model
+        print('Using local embedding model.')
         embedder = HuggingFaceBgeEmbeddings(model_name=EMBED_MODEL)
 
     # Batch size
     batch_size = 32
     num_chunks = len(chunks)
+    print('num_chunks:', num_chunks)
     for i in range(0, num_chunks, batch_size):
         batch_chunks = chunks[i : i + batch_size]
         batch_texts = batch_chunks
@@ -166,27 +171,27 @@ async def ingest_documents(
             uploaded_files.append(save_path)
             print(f"Successfully saved file {save_path}")
 
-        def process_files_wrapper(files):
-            if not isinstance(files, list):
-                files = [files]
-            for file in files:
-                ingest_data_to_redis(DocPath(path=file, chunk_size=chunk_size, chunk_overlap=chunk_overlap))
+        # def process_files_wrapper(files):
+        #     if not isinstance(files, list):
+        #         files = [files]
+        #     for file in files:
+        #         ingest_data_to_redis(DocPath(path=file, chunk_size=chunk_size, chunk_overlap=chunk_overlap))
 
-        try:
-            # Create a SparkContext
-            conf = SparkConf().setAppName("Parallel-dataprep").setMaster("local[*]")
-            sc = SparkContext(conf=conf)
-            # Create an RDD with parallel processing
-            parallel_num = min(len(uploaded_files), os.cpu_count())
-            rdd = sc.parallelize(uploaded_files, parallel_num)
-            # Perform a parallel operation
-            rdd_trans = rdd.map(process_files_wrapper)
-            rdd_trans.collect()
-            # Stop the SparkContext
-            sc.stop()
-        except:
-            # Stop the SparkContext
-            sc.stop()
+        # try:
+        #     # Create a SparkContext
+        #     conf = SparkConf().setAppName("Parallel-dataprep").setMaster("local[*]")
+        #     sc = SparkContext(conf=conf)
+        #     # Create an RDD with parallel processing
+        #     parallel_num = min(len(uploaded_files), os.cpu_count())
+        #     rdd = sc.parallelize(uploaded_files, parallel_num)
+        #     # Perform a parallel operation
+        #     rdd_trans = rdd.map(process_files_wrapper)
+        #     rdd_trans.collect()
+        #     # Stop the SparkContext
+        #     sc.stop()
+        # except:
+        #     # Stop the SparkContext
+        #     sc.stop()
         return {"status": 200, "message": "Data preparation succeeded"}
 
     if link_list:
@@ -263,7 +268,7 @@ async def delete_single_file(file_path: str = Body(..., embed=True)):
 
 
 if __name__ == "__main__":
-    # create_upload_folder(upload_folder)
+    create_upload_folder(upload_folder)
     opea_microservices["opea_service@prepare_doc_redis"].start()
     opea_microservices["opea_service@prepare_doc_redis_file"].start()
     opea_microservices["opea_service@prepare_doc_redis_del"].start()
