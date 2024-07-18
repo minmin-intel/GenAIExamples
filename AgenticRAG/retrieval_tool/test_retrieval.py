@@ -3,10 +3,9 @@ import json
 import argparse
 
 def query_retrieval_tool(url, query):
-    query = "Nike reveneue in 2023"
     data = {"text":query}
     header = {"Content-Type": "application/json"}
-    response = requests.post(url, json=data, proxies=proxies, headers=header)
+    response = requests.post(url, json=data, proxies=proxies) #, headers=header)
     print(response)
     print(response.json()["retrieved_docs"][0]["text"])
 

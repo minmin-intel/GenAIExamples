@@ -4,7 +4,7 @@
 import asyncio
 import os
 
-from comps import Gateway, MicroService, ServiceOrchestrator, ServiceType
+from comps import Gateway, MicroService, ServiceOrchestrator, ServiceType, EmbedDoc768
 from comps.cores.proto.docarray import LLMParams, TextDoc, SearchedDoc
 from fastapi import Request
 
@@ -28,7 +28,7 @@ class RetrievalToolGateway(Gateway):
             port, 
             "/v1/retrievaltool", #str(MegaServiceEndpoint.RETRIEVALTOOL), #-> endpoint url
             TextDoc, #ChatCompletionRequest, 
-            SearchedDoc #ChatCompletionResponse
+            TextDoc #ChatCompletionResponse
         )
 
     async def handle_request(self, request: Request):
@@ -56,6 +56,7 @@ class RetrievalToolGateway(Gateway):
             #     and self.megaservice.services[node].service_type == ServiceType.RERANK
             # ):
             print('Node: {}\nResponse: {}'.format(node, response))
+            # print(response.json())
             if self.megaservice.services[node].service_type == ServiceType.RERANK:
                 return response
 
@@ -96,6 +97,8 @@ class RetrievalToolService:
         self.megaservice.add(embedding).add(retriever).add(rerank)
         self.megaservice.flow_to(embedding, retriever)
         self.megaservice.flow_to(retriever, rerank)
+
+        # self.megaservice.add(embedding)
         self.gateway = RetrievalToolGateway(megaservice=self.megaservice, host="0.0.0.0", port=self.port)
 
 

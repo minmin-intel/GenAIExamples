@@ -12,6 +12,9 @@ docker build --no-cache -t opea/retriever-redis:latest --build-arg https_proxy=$
 ```
 3. Reranker
 ```
+# copy reranking python code into GenAIComps
+cp ../GenAIExamples/AgenticRAG/retrieval_tool/reranking_baseline.py comps/reranks/tei/reranking_tei.py
+
 # Inside GenAIComps/
 docker build --no-cache -t opea/reranking-tei:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/reranks/tei/docker/Dockerfile .
 ```

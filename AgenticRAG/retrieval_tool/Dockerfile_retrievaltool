@@ -21,12 +21,13 @@ RUN cd /home/user/ && \
 RUN cd /home/user/GenAIComps && pip install --no-cache-dir --upgrade pip && \
     pip install -r /home/user/GenAIComps/requirements.txt
 
-COPY ./retrieval_tool.py /home/user/retrieval_tool.py
+RUN mkdir -p /home/user/script
+COPY ./retrieval_tool.py /home/user/script/retrieval_tool.py
 
 ENV PYTHONPATH=$PYTHONPATH:/home/user/GenAIComps
 
 USER user
 
-WORKDIR /home/user
+WORKDIR /home/user/script
 
 ENTRYPOINT ["python", "retrieval_tool.py"]
