@@ -13,9 +13,9 @@ def get_query(args):
         for line in f:
             data = json.loads(line)
             query.append(data["query"])
-            n += 1
-            if n >= 2:
-                break
+            # n += 1
+            # if n >= 2:
+            #     break
     return query
 
 def query_retrieval_tool(url, query):
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         print('-'*50)
         output_list.append({"query":q, "context":context, "answer":answer})
         n+=1
-        if n > 0 and n%1 == 0:
+        if n > 0 and n%10 == 0:
             save_results(args, output_list)
             output_list = []
     
