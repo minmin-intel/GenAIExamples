@@ -6,8 +6,8 @@ def query_retrieval_tool(url, query):
     data = {"text":query}
     header = {"Content-Type": "application/json"}
     response = requests.post(url, json=data, proxies=proxies) #, headers=header)
-    print(response)
-    print(response.json()["retrieved_docs"][0]["text"])
+    # print(response)
+    print(response.json()["text"])
 
 def get_query(args):
     query = []
