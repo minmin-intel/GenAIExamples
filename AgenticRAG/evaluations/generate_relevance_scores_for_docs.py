@@ -64,7 +64,7 @@ def run_openai_api(args, query, doc, ref):
         ("human", RELEVANCE_SCORE_PROMPT.format(query=query, doc=doc, answer=ref)),
     ]
     res = llm.invoke(messages)
-    print(res.content)
+    # print(res.content)
     return res.content
 
 
@@ -78,9 +78,11 @@ def split_context_str_into_docs(context_str):
 def generate_relevance_scores_for_retrieved_docs(args, query, context, ref):
     relevance_scores = []
     # split context
-    context = split_context_str_into_docs(context)
-    print('There are {} docs in the context'.format(len(context)))
-    for doc in context:
+    context_list = split_context_str_into_docs(context)
+    print('There are {} docs in the context'.format(len(context_list)))
+    
+    overall_relevance_score = int(run_openai_api(args, query, context, ref))
+    for doc in context_list:
         if args.use_openai_api:
             res = run_openai_api(args, query, doc, ref)
         elif args.use_opea_llm_endpoint:
@@ -88,8 +90,8 @@ def generate_relevance_scores_for_retrieved_docs(args, query, context, ref):
         else:
             raise ValueError("ONLY OpenAI API or OPEA LLM endpoint are supported!")
         relevance_scores.append(int(res))
-    average_relevance_score = sum(relevance_scores) / len(relevance_scores)
-    return average_relevance_score
+    # average_relevance_score = sum(relevance_scores) / len(relevance_scores)
+    return overall_relevance_score, relevance_scores
     
 # for each candidate doc, generate a relevance score using LLM
 def generate_relevance_scores_for_candidate_docs(args, query, candidate_docs):
@@ -129,12 +131,14 @@ if __name__ == '__main__':
         df = pd.read_json(args.ref_file, lines=True)
         # df_result = df_result.sample(2) # for debugging
         scores = []
+        scores_per_doc = []
         for _, row in df_result.iterrows():
             query = row["query"]
             context = row["context"]
             ref = get_ref_answer(query, df)
-            relevance_score = generate_relevance_scores_for_retrieved_docs(args, query, context, ref)
+            relevance_score, score_per_doc = generate_relevance_scores_for_retrieved_docs(args, query, context, ref)
             scores.append(relevance_score)
+            scores_per_doc.append(score_per_doc)
             print('Query:\n{}\nContext:\n{}\nRef:\n{}'.format(query, context, ref))
             print('Relevance score: {}'.format(relevance_score))
             print('-'*50)
@@ -142,6 +146,7 @@ if __name__ == '__main__':
         average_score = sum(scores) / len(scores)
         print("Average relevance score of retrieved docs for {} queries: {}".format(df_result.shape[0],average_score))
         df_result["relevance_score"] = scores
+        df_result["relevance_scores_per_doc"] = scores_per_doc
         df_result.to_json(args.result_file.replace('.jsonl', '_relevance_scores_{}.jsonl'.format(args.model)), lines=True, orient='records')
 
     elif args.score_candidate_docs:

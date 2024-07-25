@@ -27,6 +27,8 @@ services:
   embedding:
     image: opea/embedding-tei:latest
     container_name: embedding-tei-server
+    volumes:
+      - "/localdisk/minminho/GenAIComps/comps/:/home/user/comps"
     depends_on:
       - tei-embedding-service
     ports:
@@ -44,6 +46,8 @@ services:
   retriever:
     image: opea/retriever-redis:latest
     container_name: retriever-redis-server
+    volumes:
+      - "/localdisk/minminho/GenAIComps/comps/:/home/user/comps"
     depends_on:
       - redis-vector-db
     ports:

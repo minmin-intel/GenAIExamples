@@ -3,6 +3,26 @@ import os
 import argparse
 import tqdm
 
+def process_html_string(text):
+    from bs4 import BeautifulSoup
+    # print(text)
+    soup = BeautifulSoup(text, features="html.parser")
+
+    # kill all script and style elements
+    for script in soup(["script", "style"]):
+        script.extract()    # rip it out
+
+    # get text
+    text_content = soup.get_text()
+
+    # break into lines and remove leading and trailing space on each
+    lines = (line.strip() for line in text_content.splitlines())
+    # break multi-headlines into a line each
+    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+    # drop blank lines
+    final_text = '\n'.join(chunk for chunk in chunks if chunk)
+    print(final_text)
+    return final_text
 
 def preprocess_data(input_file):
     snippet = []
@@ -14,11 +34,22 @@ def preprocess_data(input_file):
 
             # research results snippets --> retrieval corpus docs
             docs = data['search_results']
+            
             for doc in docs:
+                print('PAGE RESULT:')
+                text = process_html_string(doc['page_result'])
+                print('PAGE SNIPPET:\n', doc['page_snippet'])
+                for d in doc['page_snippet'].split('.'):
+                    if d in text:
+                        print('Yes')
+                    else:
+                        print('No')
                 snippet.append({
                     "query": data['query'],
                     "domain": data['domain'],
                     "doc":doc['page_snippet']})
+                print('-----------------------------------')
+                break
             
             # qa pairs without search results
             output = {}
@@ -27,9 +58,9 @@ def preprocess_data(input_file):
                     output[k] = v
             return_data.append(output)
 
-            # n += 1
-            # if n>=5:
-            #     break
+            n += 1
+            if n>=1:
+                break
 
     return snippet, return_data
 
@@ -42,11 +73,11 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    if not os.path.exists(args.docout):
-        os.makedirs(args.docout)
+    # if not os.path.exists(args.docout):
+    #     os.makedirs(args.docout)
 
-    if not os.path.exists(args.qaout):
-        os.makedirs(args.qaout)
+    # if not os.path.exists(args.qaout):
+    #     os.makedirs(args.qaout)
 
     data_files = os.listdir(args.filedir)
 
@@ -61,14 +92,14 @@ if __name__ == '__main__':
     # group by domain
     domains = ["finance", "music", "movie", "sports", "open"]
 
-    for domain in domains:
-        with open(os.path.join(args.docout, "crag_docs_"+domain + ".jsonl"), 'w') as f:
-            for doc in docs:
-                # print(doc.keys())
-                if doc['doc']!="" and doc['domain'] == domain:
-                    f.write(json.dumps(doc) + '\n')
+    # for domain in domains:
+    #     with open(os.path.join(args.docout, "crag_docs_"+domain + ".jsonl"), 'w') as f:
+    #         for doc in docs:
+    #             # print(doc.keys())
+    #             if doc['doc']!="" and doc['domain'] == domain:
+    #                 f.write(json.dumps(doc) + '\n')
 
-        with open(os.path.join(args.qaout, "crag_qa_"+domain + ".jsonl"), 'w') as f:
-            for d in qa_pairs:
-                if d['domain'] == domain:
-                    f.write(json.dumps(d) + '\n')
+    #     with open(os.path.join(args.qaout, "crag_qa_"+domain + ".jsonl"), 'w') as f:
+    #         for d in qa_pairs:
+    #             if d['domain'] == domain:
+    #                 f.write(json.dumps(d) + '\n')
