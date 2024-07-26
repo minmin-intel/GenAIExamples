@@ -1,0 +1,27 @@
+import os
+
+def setup_hf_tgi_client(args):
+    from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+
+
+    generation_params = {
+        "max_new_tokens": args.max_new_tokens,
+        "top_k": args.top_k,
+        "top_p": args.top_p,
+        "temperature": args.temperature,
+        "repetition_penalty": args.repetition_penalty,
+        "return_full_text": args.return_full_text,
+        "streaming": args.streaming,
+    }
+
+    llm_endpoint_url = os.environ.get("TGI_LLM_ENDPOINT", "localhost:8080")
+
+    llm = HuggingFaceEndpoint(
+        endpoint_url=llm_endpoint_url,
+        task="text-generation",
+        **generation_params,
+    )
+
+    model = ChatHuggingFace(llm=llm, model_id=args.model_id)
+
+    return model

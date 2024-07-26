@@ -1,0 +1,40 @@
+services:
+  # tgi_service:
+  #   image: ghcr.io/huggingface/text-generation-inference:2.1.0
+  #   container_name: tgi-service
+  #   ports:
+  #     - "9009:80"
+  #   volumes:
+  #     - "/localdisk/minminho/hf_cache:/data"
+  #   shm_size: 1g
+  #   environment:
+  #     no_proxy: ${no_proxy}
+  #     http_proxy: ${http_proxy}
+  #     https_proxy: ${https_proxy}
+  #     HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+  #     HF_HUB_DISABLE_PROGRESS_BARS: 1
+  #     HF_HUB_ENABLE_HF_TRANSFER: 0
+  #   command: --model-id ${LLM_MODEL_ID}
+
+  agent:
+    image: agent-dev:latest
+    container_name: agent-dev
+    # depends_on:
+    #   - tgi_service
+    ports:
+      - "8890:8890"
+    volumes:
+      - "/localdisk/minminho/GenAIExamples/AgenticRAG/agent:/home/user/agent"
+      - "/localdisk/minminho/datasets/:/home/user/datasets/"
+    ipc: host
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      TGI_LLM_ENDPOINT: ${TGI_LLM_ENDPOINT}
+      CRAG_SERVER: ${CRAG_SERVER}
+      RETRIEVAL_TOOL_URL: ${RETRIEVAL_TOOL_URL}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HF_HUB_DISABLE_PROGRESS_BARS: 1
+      HF_HUB_ENABLE_HF_TRANSFER: 0
+  
