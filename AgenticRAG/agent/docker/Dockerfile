@@ -34,4 +34,4 @@ RUN mkdir -p /home/user/datasets/
 
 WORKDIR /home/user/agent/
 
-ENTRYPOINT ["python", "agent.py"]
+ENTRYPOINT ["python", "test.py"]
