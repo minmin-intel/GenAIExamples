@@ -25,12 +25,20 @@ def get_query(args):
 
 def init_agent(args, tools):
     if args.agent_type=="react":
-        model = setup_hf_tgi_client(args)
-        # model = ChatOpenAI(model="gpt-4o", temperature=0)
+        if args.use_hf_tgi:
+            model = setup_hf_tgi_client(args)
+        else:
+            model = ChatOpenAI(model="gpt-4o-mini-2024-07-18", temperature=0)
         graph = create_react_agent(model, tools = tools)
     elif args.agent_type=='doc_grader':
-        from agent import RAGAgentwithLanggraph
-        graph = RAGAgentwithLanggraph(args, tools).app
+        # v0 
+        # from agent import RAGAgentwithLanggraph
+        # graph = RAGAgentwithLanggraph(args, tools).app
+
+        # v1
+        from agent import RAGAgentDocGraderV1
+        graph = RAGAgentDocGraderV1(args, tools).app
+
     else:
         pass
     return graph
@@ -49,17 +57,17 @@ def run_agent(query, query_time, graph):
             # else:
             #     message.pretty_print()
             for k, v in s.items():
-                print("{}: {}".format(k,v))
+                print("*{}:\n{}".format(k,v))
 
         # response = s["messages"][-1]
         response = s['output']
-        print('***Final output:\n{}'.format(response))
+        print('***Final output:\n{} \n****End of output****'.format(response))
     except Exception as e:
         print("***Error: {}".format(e))
         response = str(e)
     
     print('***Total # messages: ',len(s["messages"]))
-    print('-'*50)
+    print('='*50)
     return response, s["messages"]
 
 def get_messages_content(messages):
@@ -75,7 +83,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
     parser.add_argument("--agent_type", type=str, default="doc_grader")
-    parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3-8B-Instruct")
+    parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--max_new_tokens", type=int, default=256)
     parser.add_argument("--top_k", type=int, default=50)
     parser.add_argument("--top_p", type=float, default=0.95)
@@ -83,6 +91,8 @@ if __name__ == "__main__":
     parser.add_argument("--repetition_penalty", type=float, default=1.2)
     parser.add_argument("--return_full_text", type=bool, default=False)
     parser.add_argument("--streaming", type=bool, default=False)
+    parser.add_argument("--use_openai", type=bool, default=True)
+    parser.add_argument("--use_hf_tgi", type=bool, default=False)
     parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_qa_music_sampled_with_query_time.jsonl", help="query jsonl file")
     args = parser.parse_args()
 
