@@ -1,12 +1,13 @@
 from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from tools.tools import get_all_available_tools
 from tools.tools import search_knowledge_base, get_grammy_award_count_by_artist, get_artist_all_works
 from model import setup_hf_tgi_client
 import argparse
 import json
 
-RECURSION_LIMIT = 5
+RECURSION_LIMIT = 10
 
 def get_query(args):
     query = []
@@ -17,9 +18,9 @@ def get_query(args):
             data = json.loads(line)
             query.append(data["query"])
             query_time.append(data["query_time"])
-            n += 1
-            if n >= 2:
-                break
+            # n += 1
+            # if n >= 2:
+            #     break
     return query, query_time
 
 
@@ -44,9 +45,23 @@ def init_agent(args, tools):
     return graph
 
 
+def get_last_tool_message(messages):
+    for m in messages[::-1]:
+        if isinstance(m, ToolMessage):
+            return m.content
+    return None
+
+def get_num_llm_calls(messages):
+    n_tool = 0
+    for m in messages: # ToolMessage is not LLM call
+        if isinstance(m, ToolMessage):
+            n_tool += 1
+    return len(messages) - n_tool - 1 # the first message is query, so subtract 1
+            
+
 def run_agent(query, query_time, graph):
     # graph.step_timeout = 1200
-    prompt = "Query: {} \n Query Time: {}".format(query, query_time)
+    prompt = "Question: {} \nThe question was asked at: {}".format(query, query_time)
     print("Prompt:\n{}".format(prompt))
     inputs = {"messages": [("user", prompt)]}
     try:
@@ -60,15 +75,26 @@ def run_agent(query, query_time, graph):
                 print("*{}:\n{}".format(k,v))
 
         # response = s["messages"][-1]
-        response = s['output']
+        if "output" in s:
+            print('output key in state')
+            response = s['output']
+        else:
+            print('output key not in state')
+            response = s["messages"][-1].content
+        context = get_last_tool_message(s["messages"])
         print('***Final output:\n{} \n****End of output****'.format(response))
+        print('***Context:\n{} \n****End of context****'.format(context))
     except Exception as e:
         print("***Error: {}".format(e))
         response = str(e)
+        context = None
+    
+    # count num of LLM calls
+    num_llm_calls = get_num_llm_calls(s["messages"])
     
     print('***Total # messages: ',len(s["messages"]))
     print('='*50)
-    return response, s["messages"]
+    return response, context, num_llm_calls
 
 def get_messages_content(messages):
     print('Get message content...')
@@ -82,7 +108,7 @@ def get_messages_content(messages):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
-    parser.add_argument("--agent_type", type=str, default="doc_grader")
+    parser.add_argument("--agent_type", type=str, default="react")
     parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--max_new_tokens", type=int, default=256)
     parser.add_argument("--top_k", type=int, default=50)
@@ -93,33 +119,40 @@ if __name__ == "__main__":
     parser.add_argument("--streaming", type=bool, default=False)
     parser.add_argument("--use_openai", type=bool, default=True)
     parser.add_argument("--use_hf_tgi", type=bool, default=False)
-    parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_qa_music_sampled_with_query_time.jsonl", help="query jsonl file")
+    parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_qa_music_sampled_low_relevance_score_with_query_time.jsonl", help="query jsonl file")
     args = parser.parse_args()
 
     print(args)
 
     query_list, query_time = get_query(args)
-    print(query_list)
+    # print(query_list)
 
-    # tools = get_all_available_tools()
+    # query_list=["how many songs have been released by barbra streisand since winning he/she won their first grammy?"]
+    # query_time=["03/21/2024, 23:37:29 PT"]
+
+    # query_list = ["how many grammys has beyonc\u00e9 been nominated for?"]
+    # query_time=["03/21/2024, 23:37:29 PT"]
+
+    tools = get_all_available_tools()
     # tools=[search_knowledge_base, get_grammy_award_count_by_artist, get_artist_all_works]
-    tools = [search_knowledge_base]
+    # tools = [search_knowledge_base]
     
     graph = init_agent(args, tools)
 
     output = []
     for q, t in zip(query_list, query_time):
-        res, messages = run_agent(q, t, graph)
+        res, context, n = run_agent(q, t, graph)
         output.append(
             {
                 "query": q,
                 "query_time": t,
-                "response": res,
-                # "messages": get_messages_content(messages)
+                "answer": res,
+                "context": context,
+                "num_llm_calls": n
             }
         )
     
-    with open("/home/user/datasets/crag_results/agent_test_output.jsonl", "w") as f:
+    with open("/home/user/datasets/crag_results/crag_music_49queries_reactv0_gpt4omini.jsonl", "w") as f:
         for line in output:
             f.write(json.dumps(line) + "\n")
         

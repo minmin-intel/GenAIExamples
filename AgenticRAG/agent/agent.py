@@ -12,7 +12,7 @@
 from typing import Annotated, Any, Literal, Sequence, TypedDict
 
 from langchain.output_parsers import PydanticOutputParser
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.prompts import PromptTemplate
@@ -276,12 +276,16 @@ class RAGAgentwithLanggraph(BaseAgent):
         yield "data: [DONE]\n\n"
 
 #================ DocGraderV1=========================
+instruction="Retrieved document is not sufficient or relevant to answer the query. Reformulate the query to search knowledge base again."
+MAX_RETRY=2
+
 class AgentStateV1(TypedDict):
     # The add_messages function defines how an update should be processed
     # Default is to replace. add_messages says "append"
     messages: Annotated[Sequence[BaseMessage], add_messages]
     output: str
     doc_score: str
+    doc: str
 
 
 class DocumentGraderV1:
@@ -331,8 +335,45 @@ class DocumentGraderV1:
 
         else:
             print(f"---DECISION: DOCS NOT RELEVANT, score is {score}---")
-            instruction="Retrieved document is not sufficient or relevant to answer the query. Reformulate the query to search knowledge base again."
+            
             return {"messages":[HumanMessage(content=instruction)], "doc_score": "rewrite"}
+
+class TextGeneratorV1:
+    """Generate answer.
+
+    Args:
+        state (messages): The current state
+
+    Returns:
+        dict: The updated state with re-phrased question
+    """
+
+    def __init__(self, llm_endpoint, model_id=None):
+        # Chain
+        prompt = rlm_rag_prompt
+        self.rag_chain = prompt | llm_endpoint | StrOutputParser()
+
+    def __call__(self, state):
+        print("---GENERATE---")
+        messages = state["messages"]
+        question = messages[0].content
+
+        # find the latest retrieved doc
+        # which is a ToolMessage
+        for m in state['messages'][::-1]:
+            if isinstance(m, ToolMessage):
+                last_message = m
+                break
+
+        question = messages[0].content
+        docs = last_message.content
+
+        # Run
+        response = self.rag_chain.invoke({"context": docs, "question": question})
+        print('@@@@ Used this doc for generation:\n', docs)
+        print('@@@@ Generated response: ', response)
+        return {"output": response}
+    
 
 class RAGAgentDocGraderV1(BaseAgent):
     def __init__(self, args, tools):
@@ -342,7 +383,7 @@ class RAGAgentDocGraderV1(BaseAgent):
         document_grader = DocumentGraderV1(self.llm_endpoint, args.model_id)
         rag_agent = RagAgent(self.llm_endpoint, args.model_id, self.tools_descriptions)
         # rewriter = Rewriter(self.llm_endpoint)
-        text_generator = TextGenerator(self.llm_endpoint)
+        text_generator = TextGeneratorV1(self.llm_endpoint)
 
         retriever = Retriever.create(self.tools_descriptions)
 
@@ -383,7 +424,15 @@ class RAGAgentDocGraderV1(BaseAgent):
         self.app = workflow.compile()
     
     def should_retry(self, state):
-        if state["doc_score"] == "rewrite":
+        # first check how many retry attempts have been made
+        num_retry = 0
+        for m in state['messages']:
+            if instruction in m.content:
+                num_retry += 1
+
+        print("**********Num retry: ", num_retry)
+        
+        if (num_retry <MAX_RETRY) and (state["doc_score"] == "rewrite"):
             return True
         else:
             return False
