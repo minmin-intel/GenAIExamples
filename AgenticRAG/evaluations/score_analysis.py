@@ -7,6 +7,7 @@ def read_data(filename):
         df = pd.read_csv(filename)
     elif filename.endswith('.jsonl'):
         df = pd.read_json(filename, lines=True)
+    print("Columns in file {} are:\n{}".format(filename,df.columns))
     return df
 
 def merge_score_with_meta_info(args):
@@ -93,6 +94,7 @@ if __name__ == '__main__':
         print('F1 score for retrieval relevance scores: ')
         calculate_f1_score(df, 'relevance_score', 'human_relevance_score')
     else:
-        df = merge_score_with_meta_info(args)
+        # df = merge_score_with_meta_info(args)
+        df = read_data(args.score_file)
         calculate_average_score(df, args.score_col)
-        count_category(df, args.score_col)
+        # count_category(df, args.score_col)

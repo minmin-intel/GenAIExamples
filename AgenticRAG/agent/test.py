@@ -68,8 +68,13 @@ def get_total_tokens(messages):
     total_tokens = 0
     for m in messages:
         if isinstance(m, AIMessage):
-            # total_tokens += m.response_metadata['token_usage']['total_tokens']
-            total_tokens += m.usage_metadata["total_tokens"]
+            try:
+                if m.usage_metadata["total_tokens"]:
+                    total_tokens += m.usage_metadata["total_tokens"]
+                else:
+                    total_tokens += m.response_metadata['token_usage']['total_tokens']
+            except:
+                total_tokens = 0
     return total_tokens
         
 
@@ -89,7 +94,7 @@ def get_trace(messages):
 def run_agent(inputs, config, graph):
     # graph.step_timeout = 1200
     try:
-        for s in graph.stream(inputs, config, stream_mode="values"):
+        for s in graph.stream(inputs, config=config, stream_mode="values"):
             # message = s["messages"][-1]
             # if isinstance(message, tuple):
             #     print(message)
@@ -113,16 +118,19 @@ def run_agent(inputs, config, graph):
         response = str(e)
         context = None
     
-    # count num of LLM calls
-    # trace = get_trace(s["messages"])
-    num_llm_calls = get_num_llm_calls(s["messages"])
-    total_tokens = get_total_tokens(s["messages"])
-    
-    print('***Total # messages: ',len(s["messages"]))
-    print('***Total # LLM calls: ', num_llm_calls)
-    print('***Total # tokens: ', total_tokens)
+    # get statistics
+    try:
+        num_llm_calls = get_num_llm_calls(s["messages"])
+        total_tokens = get_total_tokens(s["messages"])
+        print('***Total # messages: ',len(s["messages"]))
+        print('***Total # LLM calls: ', num_llm_calls)
+        print('***Total # tokens: ', total_tokens)
+    except:
+        num_llm_calls = None
+        total_tokens = None
     print('='*50)
     return response, context, num_llm_calls, total_tokens
+
 
 def get_messages_content(messages):
     print('Get message content...')
@@ -137,10 +145,20 @@ def save_as_csv(output):
     df = pd.read_json(output, lines=True, convert_dates=False)
     df.to_csv(output.replace(".jsonl", ".csv"), index=False)
 
+
+def save_results(output_file, output_list):       
+    with open(output_file, "w") as f:
+        for output in output_list:
+            f.write(json.dumps(output))
+            f.write("\n")
+
+    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
     parser.add_argument("--agent_type", type=str, default="react")
+    parser.add_argument("--use_all_tools", type=bool, default=False)
     parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--max_new_tokens", type=int, default=256)
     parser.add_argument("--top_k", type=int, default=50)
@@ -157,23 +175,28 @@ if __name__ == "__main__":
 
     RECURSION_LIMIT = 10
 
-    # query_list, query_time = get_query(args)
-    # query_list=["how many songs have been released by barbra streisand since winning he/she won their first grammy?"]
+    # query=["how many songs have been released by barbra streisand since winning he/she won their first grammy?"]
     # query_time=["03/21/2024, 23:37:29 PT"]
-    # query_list = ["how many grammys has beyonc\u00e9 been nominated for?"]
-    # query_time=["03/21/2024, 23:37:29 PT"]
+
+    # query = "who has had more number one hits on the us billboard r&b/hip-hop songs chart, janet jackson or aretha franklin?"
+    # query_time = "03/13/2024, 09:42:59 PT"
+    # df = pd.DataFrame({"query": [query], "query_time": [query_time]})
+
     df = get_test_dataset(args)
 
-    if args.agent_type=="react":
+    if args.use_all_tools:
+        print('Using all tools....')
         tools = get_all_available_tools()
-    elif args.agent_type=="doc_grader":
+    else:
+        print('Using only retrieval tool....')
         tools = [search_knowledge_base]
     
     graph = init_agent(args, tools)
-    config = {"recurison_limit": RECURSION_LIMIT}
+    config = {"recursion_limit": RECURSION_LIMIT}
 
     output = []
-    
+    output_file = "/home/user/datasets/crag_results/crag_music_49queries_reactv0_1tool_gpt4omini.jsonl"
+
     n = 0
     for _, row in df.iterrows():
         q = row["query"]
@@ -203,13 +226,11 @@ if __name__ == "__main__":
                 "static_or_dynamic": row["static_or_dynamic"],
             }
         )
+        
+        save_results(output_file, output)
         # n+=1
         # if n>=2:
         #     break
     
-    output_file = "/home/user/datasets/crag_results/crag_music_49queries_reactv0_gpt4omini_sysm_trace.jsonl"
-    with open(output_file, "w") as f:
-        for line in output:
-            f.write(json.dumps(line) + "\n")
-    
+    save_results(output_file, output)
     save_as_csv(output_file)
