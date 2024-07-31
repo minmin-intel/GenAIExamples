@@ -24,7 +24,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_openai import ChatOpenAI
 
 # from ..base_agent import BaseAgent
-from prompt import rlm_rag_prompt, DOC_GRADER_PROMPT
+from prompt import rlm_rag_prompt, DOC_GRADER_PROMPT, RAGv1_PROMPT
 from model import setup_llm
 
 
@@ -285,7 +285,7 @@ class AgentStateV1(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     output: str
     doc_score: str
-    doc: str
+    query_time: str
 
 
 class DocumentGraderV1:
@@ -350,13 +350,15 @@ class TextGeneratorV1:
 
     def __init__(self, llm_endpoint, model_id=None):
         # Chain
-        prompt = rlm_rag_prompt
+        # prompt = rlm_rag_prompt
+        prompt = RAGv1_PROMPT
         self.rag_chain = prompt | llm_endpoint | StrOutputParser()
 
     def __call__(self, state):
         print("---GENERATE---")
         messages = state["messages"]
         question = messages[0].content
+        query_time = state['query_time']
 
         # find the latest retrieved doc
         # which is a ToolMessage
@@ -369,7 +371,7 @@ class TextGeneratorV1:
         docs = last_message.content
 
         # Run
-        response = self.rag_chain.invoke({"context": docs, "question": question})
+        response = self.rag_chain.invoke({"context": docs, "question": question, "time":query_time})
         print('@@@@ Used this doc for generation:\n', docs)
         print('@@@@ Generated response: ', response)
         return {"output": response}

@@ -2,6 +2,7 @@ import requests
 import json
 import argparse
 import os
+import pandas as pd
 
 
 proxies = {"http": ""}
@@ -69,6 +70,19 @@ def generate_answer(args, url, query, context, time):
     response = requests.post(url, json=payload, proxies=proxies) #, headers=header)
     return response.json()["text"]
 
+def generate_answer_openai(args, query, context, time):
+    from langchain_openai import ChatOpenAI
+    prompt = PROMPT.format(context=context, question=query, time=time)
+    llm = ChatOpenAI(model="gpt-4o-mini-2024-07-18", max_tokens=args.max_new_tokens, temperature=0)
+    messages = [
+        ("human", prompt)
+    ]
+    ai_msg = llm.invoke(messages)
+    # print(ai_msg.content)
+    return ai_msg.content
+
+
+
 def save_results(args, output_list):
     if not os.path.exists(os.path.dirname(args.output_file)):
         os.makedirs(os.path.dirname(args.output_file))
@@ -78,6 +92,10 @@ def save_results(args, output_list):
             f.write(json.dumps(output))
             f.write("\n")
 
+def save_as_csv(args):
+    df = pd.read_json(args.output_file, lines=True, convert_dates=False)
+    df.to_csv(args.output_file.replace(".jsonl", ".csv"), index=False)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -85,6 +103,7 @@ if __name__ == "__main__":
     parser.add_argument("--query_file", type=str, default=None, help="query jsonl file")
     parser.add_argument("--output_file", type=str, default="output.jsonl", help="output jsonl file")
     parser.add_argument("--max_new_tokens", type=int, default=128, help="max new tokens for the generator")
+    parser.add_argument("--use_openai", action="store_true", help="use openai API")
     args = parser.parse_args()
     
     host_ip = args.host_ip
@@ -97,25 +116,49 @@ if __name__ == "__main__":
     generator_endpoint = "{port}/v1/chat/completions".format(port = port)
     generator_url = "http://{host_ip}:{endpoint}".format(host_ip=host_ip, endpoint=generator_endpoint)
 
-    query_list, query_time = get_query(args)
+    # query_list, query_time = get_query(args)
+    # context_list = []
+    # answer_list = []
     output_list = []
 
+    if args.query_file.endswith('.jsonl'):
+        df = pd.read_json(args.query_file, lines=True, convert_dates=False)
+    elif args.query_file.endswith('.csv'):
+        df = pd.read_csv(args.query_file)
+    
     n = 0
-    for q, t in zip(query_list, query_time):
+    for _, row in df.iterrows():
+        q = row['query']
+        t = row['query_time']
         print('Query: {}'.format(q))
         print('Query Time: {}'.format(t))
         context = query_retrieval_tool(retrieval_url, q)
         print('Context:\n{}'.format(context))
-        answer = generate_answer(args, generator_url, q, context, t)
+        if args.use_openai:
+            answer = generate_answer_openai(args, q, context, t)
+        else:
+            answer = generate_answer(args, generator_url, q, context, t)
         print('Answer:\n{}'.format(answer))
         print('-'*50)
-        output_list.append({"query":q, "context":context, "answer":answer})
+        
+        # answer_list.append(answer)
+        # context_list.append(context)  
+        output_list.append(
+            {"query":q, 
+             "query_time":t, 
+             "context":context, 
+             "answer":answer,
+             "question_type":row['question_type'],
+             "static_or_dynamic":row['static_or_dynamic'],
+             "ref_answer":row['answer'],})      
         n+=1
+        # if n>=2:
+        #     break
         if n > 0 and n%10 == 0:
             save_results(args, output_list)
             output_list = []
     
     save_results(args, output_list)
-        
+    save_as_csv(args)
 
 
