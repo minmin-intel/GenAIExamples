@@ -8,4 +8,6 @@ langchainhub
 langgraph
 numpy
 pandas
+datasets
+sentence-transformers
 

@@ -7,32 +7,11 @@ from model import setup_hf_tgi_client
 import argparse
 import json
 import pandas as pd
+from utils import get_test_dataset, save_as_csv, save_results
 
-def get_query(args):
-    query = []
-    query_time = []
-    n = 0
-    with open(args.query_file, "r") as f:
-        for line in f:
-            data = json.loads(line)
-            query.append(data["query"])
-            query_time.append(data["query_time"])
-            # n += 1
-            # if n >= 2:
-            #     break
-    return query, query_time
-
-def get_test_dataset(args):
-    if args.query_file.endswith('.jsonl'):
-        df = pd.read_json(args.query_file, lines=True, convert_dates=False)
-    elif args.query_file.endswith('.csv'):
-        df = pd.read_csv(args.query_file)
-    else:
-        raise ValueError("Invalid file format")
-    return df
 
 def init_agent(args, tools):
-    if args.agent_type=="react":
+    if "react" in args.agent_type:
         from prompt import REACT_SYS_MESSAGE
         if args.use_hf_tgi:
             model = setup_hf_tgi_client(args)
@@ -131,33 +110,12 @@ def run_agent(inputs, config, graph):
     print('='*50)
     return response, context, num_llm_calls, total_tokens
 
-
-def get_messages_content(messages):
-    print('Get message content...')
-    output = []
-    for m in messages:
-        print(m)
-        output.append(m.content)
-        print('-'*50)
-    return output
-
-def save_as_csv(output):
-    df = pd.read_json(output, lines=True, convert_dates=False)
-    df.to_csv(output.replace(".jsonl", ".csv"), index=False)
-
-
-def save_results(output_file, output_list):       
-    with open(output_file, "w") as f:
-        for output in output_list:
-            f.write(json.dumps(output))
-            f.write("\n")
-
     
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
-    parser.add_argument("--agent_type", type=str, default="react")
+    parser.add_argument("--agent_type", type=str, default="react_tool_selection")
     parser.add_argument("--use_all_tools", type=bool, default=False)
     parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--max_new_tokens", type=int, default=256)
@@ -169,68 +127,112 @@ if __name__ == "__main__":
     parser.add_argument("--streaming", type=bool, default=False)
     parser.add_argument("--use_openai", type=bool, default=True)
     parser.add_argument("--use_hf_tgi", type=bool, default=False)
+    parser.add_argument("--embed_model", type=str, default="BAAI/bge-base-en-v1.5", help="embedding model for tools selection")
+    parser.add_argument("--k", type=int, default=5, help="num of tools to be selected")
     parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_music_49queries_meta.csv", help="query file")
+    parser.add_argument("--quick_test", type=bool, default=False)
     args = parser.parse_args()
     print(args)
 
     RECURSION_LIMIT = 10
-
-    # query=["how many songs have been released by barbra streisand since winning he/she won their first grammy?"]
-    # query_time=["03/21/2024, 23:37:29 PT"]
-
-    # query = "who has had more number one hits on the us billboard r&b/hip-hop songs chart, janet jackson or aretha franklin?"
-    # query_time = "03/13/2024, 09:42:59 PT"
-    # df = pd.DataFrame({"query": [query], "query_time": [query_time]})
-
-    df = get_test_dataset(args)
-
-    if args.use_all_tools:
-        print('Using all tools....')
-        tools = get_all_available_tools()
-    else:
-        print('Using only retrieval tool....')
-        tools = [search_knowledge_base]
-    
-    graph = init_agent(args, tools)
     config = {"recursion_limit": RECURSION_LIMIT}
 
+    if args.quick_test:
+        # query=["how many songs have been released by barbra streisand since winning he/she won their first grammy?"]
+        # query_time=["03/21/2024, 23:37:29 PT"]
+        # query = "who has had more number one hits on the us billboard r&b/hip-hop songs chart, janet jackson or aretha franklin?"
+        query_time = "03/13/2024, 09:42:59 PT"
+        query = "what is the most popular song on billboard in 2024-02-28?"
+        df = pd.DataFrame({"query": [query], "query_time": [query_time]})
+    else:
+        df = get_test_dataset(args)
+
     output = []
-    output_file = "/home/user/datasets/crag_results/crag_music_49queries_reactv0_1tool_gpt4omini.jsonl"
+    output_dir = "/home/user/datasets/crag_results/"
+    filename = "crag_music_49queries_react_selecttool_gpt4omini.jsonl"
+    output_file = output_dir + filename
 
-    n = 0
-    for _, row in df.iterrows():
-        q = row["query"]
-        t = row["query_time"]
-        prompt = "Question: {} \nThe question was asked at: {}".format(q, t)
-        if args.agent_type=="react":   
-            inputs = {
-                "messages": [("user", prompt)],
-            }
-        elif args.agent_type=="doc_grader":
-            inputs = {
-                "messages": [("user", prompt)],
-                "query_time": t
-            }
-
-        res, context, n, ntok = run_agent(inputs, config, graph)
-        output.append(
-            {
-                "query": q,
-                "query_time": t,
-                "answer": res,
-                "context": context,
-                "num_llm_calls": n,
-                "total_tokens": ntok,
-                "ref_answer": row["answer"],
-                "question_type": row["question_type"],
-                "static_or_dynamic": row["static_or_dynamic"],
-            }
-        )
         
-        save_results(output_file, output)
-        # n+=1
-        # if n>=2:
-        #     break
+    if args.agent_type=="react_tool_selection":
+        from sentence_transformers import SentenceTransformer
+        from tool_selection import get_tools_descriptions,select_tools_for_query, get_selected_tools
+        tools_descriptions = get_tools_descriptions()
+        model = SentenceTransformer(args.embed_model)
+        tools_embeddings = model.encode(tools_descriptions)
+        output = []
+        for _, row in df.iterrows():
+            query = row["query"]
+            # select tools based on query
+            top_k_tools = select_tools_for_query(query, tools_embeddings, model, args.k, tools_descriptions)
+            print('****Selected tools: ', top_k_tools)
+            selected_tools = get_selected_tools(top_k_tools)
+            # create react agent with selected tools
+            graph = init_agent(args, selected_tools)
+            # run agent
+            q = row["query"]
+            t = row["query_time"]
+            prompt = "Question: {} \nThe question was asked at: {}".format(q, t)
+            inputs = {
+                "messages": [("user", prompt)],
+            }
+            res, context, n, ntok = run_agent(inputs, config, graph)
+            output.append(
+                {
+                    "query": q,
+                    "query_time": t,
+                    "answer": res,
+                    "ref_answer": row["answer"],
+                    "context": context,
+                    "num_llm_calls": n,
+                    "total_tokens": ntok,   
+                    "question_type": row["question_type"],
+                    "static_or_dynamic": row["static_or_dynamic"],
+                    "selected_tools": top_k_tools
+                }
+            )
+            save_results(output_file, output)
+        
+    else:
+        if args.use_all_tools:
+            print('Using all tools....')
+            tools = get_all_available_tools()
+        else:
+            print('Using only retrieval tool....')
+        tools = [search_knowledge_base]
+        graph = init_agent(args, tools)
+        n = 0
+        for _, row in df.iterrows():
+            q = row["query"]
+            t = row["query_time"]
+            prompt = "Question: {} \nThe question was asked at: {}".format(q, t)
+            if args.agent_type=="react":   
+                inputs = {
+                    "messages": [("user", prompt)],
+                }
+            elif args.agent_type=="doc_grader":
+                inputs = {
+                    "messages": [("user", prompt)],
+                    "query_time": t
+                }
+
+            res, context, n, ntok = run_agent(inputs, config, graph)
+            output.append(
+                {
+                    "query": q,
+                    "query_time": t,
+                    "answer": res,
+                    "context": context,
+                    "num_llm_calls": n,
+                    "total_tokens": ntok,
+                    "ref_answer": row["answer"],
+                    "question_type": row["question_type"],
+                    "static_or_dynamic": row["static_or_dynamic"],
+                }
+            )
+            save_results(output_file, output)
+            # n+=1
+            # if n>=2:
+            #     break
     
     save_results(output_file, output)
     save_as_csv(output_file)
