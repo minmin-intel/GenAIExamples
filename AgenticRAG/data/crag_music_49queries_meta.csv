@@ -1,0 +1,50 @@
+query,query_time,static_or_dynamic,question_type,answer
+how many songs have been released by barbra streisand since winning he/she won their first grammy?,"03/21/2024, 23:37:29 PT",fast-changing,aggregation,86
+how many reading and leeds festivals has the band foo fighters headlined?,"03/13/2024, 09:55:12 PT",slow-changing,aggregation,foo fighters have headlined a total of 4 reading and leeds festivals.
+how many guitarists have been part of the band guns n' roses throughout its history?,"03/13/2024, 09:52:47 PT",static,aggregation,guns n' roses has had a total of 12 guitarists throughout its history.
+how many songs has the band the beatles released that have been recorded at abbey road studios?,"03/13/2024, 09:54:32 PT",static,aggregation,the beatles have released 190 songs that have been recorded at abbey road studios.
+"who has more spotify plays, drake or taylor swift?","03/17/2024, 17:04:50 PT",fast-changing,comparison,"as of february 2024, taylor swift is the most-streamed artist of all time on spotify."
+"are megan thee stallion's song ""hiss"" and nicki minaj's song ""big foot"" both on the billboard top 100 this week?","03/05/2024, 23:21:30 PT",fast-changing,comparison,"no, nicki minaj's song ""big foot"" did not make the billboard top 100 this week."
+"who has sold more albums worldwide, michael jackson or elvis presley?","03/10/2024, 23:23:15 PT",slow-changing,comparison,"michael jackson, over 20m albums"
+"which solo artist had more partners, shakira or adele?","03/10/2024, 23:24:34 PT",slow-changing,comparison,shakira had more partners.
+do alicia keys and big sean belong to the same record label?,"03/05/2024, 23:21:45 PT",slow-changing,comparison,"yes, both alicia keys and big sean belong to the record label roc nation."
+did the song the globe come out before the wedding?,"03/21/2024, 23:32:29 PT",static,comparison,yes
+"who has had more number one hits on the us billboard r&b/hip-hop songs chart, janet jackson or aretha franklin?","03/13/2024, 09:42:59 PT",static,comparison,"aretha franklin has had more number one hits on the us billboard r&b/hip-hop songs chart than janet jackson, with 20 number one hits compared to janet's 16."
+"which artist had more song releases last year, vince gill or beastie boys?","03/21/2024, 23:36:23 PT",static,comparison,vince gill
+"who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?","03/13/2024, 09:43:49 PT",static,comparison,"elvis presley has had more number one hits on the us billboard hot 100 chart than michael jackson, with 18 number one hits compared to jackson's 13."
+when was alex van halen the drummer for the band santana?,"03/13/2024, 10:04:31 PT",static,false_premise,invalid question
+"when did dolly parton's song, blown away, come out?","03/10/2024, 23:28:06 PT",static,false_premise,invalid question
+what grammy award did edgar barrera win this year?,"03/05/2024, 23:25:22 PT",static,false_premise,invalid question
+when did miley cyrus win grammy best new artist award?,"03/21/2024, 23:38:14 PT",static,false_premise,invalid question
+when was stevie wonder the keyboardist for the band the rolling stones?,"03/13/2024, 10:01:54 PT",static,false_premise,invalid question
+how many certified units does beyoncé's best selling alubm sell?,"03/05/2024, 23:23:03 PT",fast-changing,multi-hop,beyoncé's best selling album dangerously in love has been sold 6 million certified units.
+how many songs were released by the artist who received best new artist in 57th grammy (2014)?,"03/21/2024, 23:39:48 PT",fast-changing,multi-hop,61
+who is nicki minaj's latest diss track about?,"03/10/2024, 23:32:04 PT",fast-changing,multi-hop,"nicki minaj's song ""big foot"" is a diss track about megan thee stallion."
+can you tell me the number of songs released by the artist who won the best new artist in 47th grammy (2004)?,"03/21/2024, 23:39:54 PT",fast-changing,multi-hop,66
+how much total in sales did bob dylan's best selling album make?,"03/05/2024, 23:28:26 PT",slow-changing,multi-hop,"bob dylan's greatest hits (1967) made around $6,525,000."
+what's the most recent album from the founder of ysl records?,"03/05/2024, 23:28:07 PT",slow-changing,multi-hop,business is business
+what's the most recent album from the puerto rican artist that's been in wwe?,"03/10/2024, 23:31:52 PT",slow-changing,multi-hop,nadie sabe lo que va a pasar mañana
+can you tell me what other songs the same artist released in the same year as my time?,"03/21/2024, 23:39:18 PT",static,multi-hop,"throw it in the bag, ""everything, everyday, every where"""
+what other songs did the artist release in the same year as save me?,"03/21/2024, 23:39:11 PT",static,multi-hop,2
+how many more monthy listeners on spotify does the weeknd have than taylor swift?,"03/10/2024, 23:29:26 PT",fast-changing,post-processing,~12.01 million
+how much has spotify's user base increased by since 2020 in north america?,"03/05/2024, 23:27:12 PT",static,post-processing,spotify's user base increased by 34 million since 2020 in north america.
+how much percentage has spotify's subscribers increased by since 2021?,"03/05/2024, 23:27:17 PT",static,post-processing,33.33%
+"what percentage of the year was ""black beatles"" the number one song on the billboard 100 in 2016?","03/10/2024, 23:30:03 PT",static,post-processing,~12% of the year
+what percentage of the year was adele's album number one on the billboard 200 in 2016?,"03/10/2024, 23:29:58 PT",static,post-processing,~13% of the year
+what's the percentage change in spotify premium subscribers from the start of the 2015 fiscal year and the end of the 2020 fiscal year?,"03/05/2024, 23:26:43 PT",static,post-processing,761%
+which awards has beyonce won this year?,"03/10/2024, 23:26:42 PT",fast-changing,set,glaad media award - special award and the r&b tour of the year award by pollstar awards
+what are fireboy dml's five most popular songs on spotify?,"03/05/2024, 23:24:10 PT",fast-changing,set,"peru, bandana, yawa, peru, playboy"
+what are johnny cash's top 3 selling albums?,"03/05/2024, 23:23:43 PT",slow-changing,set,"the legend of johnny cash, at san quentin, 16 biggest hits."
+who has played drums for the red hot chili peppers?,"03/17/2024, 17:08:10 PT",static,set,"chad smith, jack irons, and cliff martinez"
+what's the usa's top song on apple music at the moment?,"03/12/2024, 12:29:45 PT",fast-changing,simple,"carnival by ¥$, kanye west & ty dolla $ign"
+how many tracks are in drake's last album?,"03/12/2024, 12:28:41 PT",slow-changing,simple,23
+how many songs are on taylor swift's latest album?,"03/12/2024, 12:28:51 PT",slow-changing,simple,13
+how many number one hits did taylor swift have?,"03/12/2024, 12:28:35 PT",slow-changing,simple,11
+where is marem ladson's original home country?,"03/21/2024, 23:41:53 PT",static,simple,es
+when did after 7 start performing?,"03/21/2024, 23:45:47 PT",static,simple,1988
+who wrote the lyrics of go crazy?,"03/21/2024, 23:47:47 PT",static,simple,"chris brown, jeffery williams, tre samuels, omari akinlolu"
+tell me the most recent song or album by doris duke?,"03/21/2024, 23:40:20 PT",fast-changing,simple_w_condition,i’m a loser: the swamp dogg sessions... and more
+how many number one hit songs does lady gaga have?,"03/21/2024, 23:40:33 PT",fast-changing,simple_w_condition,7
+what song topped the billboard chart on 2004-02-04?,"03/21/2024, 23:34:49 PT",fast-changing,simple_w_condition,hey ya!
+what is the most popular song on billboard in 2024-02-28?,"03/21/2024, 23:34:42 PT",fast-changing,simple_w_condition,texas hold 'em
+"what album did maroon five release in 2010, which included the songs ""moves like jagger"" and ""misery""?","03/13/2024, 09:49:01 PT",static,simple_w_condition,"maroon five released the album ""hands all over"" in 2010, which included the songs ""moves like jagger"" and ""misery""."
