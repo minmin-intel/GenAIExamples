@@ -17,7 +17,7 @@ services:
     ports:
       - "6006:80"
     volumes:
-      - "/localdisk/minminho/hf_cache:/data"
+      - ${WORKDIR}/hf_cache:/data
     shm_size: 1g
     environment:
       no_proxy: ${no_proxy}
@@ -28,7 +28,7 @@ services:
     image: opea/embedding-tei:latest
     container_name: embedding-tei-server
     volumes:
-      - "/localdisk/minminho/GenAIComps/comps/:/home/user/comps"
+      - ${WORKDIR}/GenAIComps/comps/:/home/user/comps
     depends_on:
       - tei-embedding-service
     ports:
@@ -47,7 +47,7 @@ services:
     image: opea/retriever-redis:latest
     container_name: retriever-redis-server
     volumes:
-      - "/localdisk/minminho/GenAIComps/comps/:/home/user/comps"
+      - ${WORKDIR}/GenAIComps/comps/:/home/user/comps
     depends_on:
       - redis-vector-db
     ports:
@@ -70,7 +70,7 @@ services:
     ports:
       - "8808:80"
     volumes:
-      - "/localdisk/minminho/hf_cache:/data"
+      - ${WORKDIR}/hf_cache:/data
     shm_size: 1g
     environment:
       no_proxy: ${no_proxy}
@@ -84,7 +84,7 @@ services:
     image: opea/reranking-tei:latest
     container_name: reranking-tei-xeon-server
     volumes:
-      - "/localdisk/minminho/GenAIComps/comps/:/home/user/comps"
+      - ${WORKDIR}/GenAIComps/comps/:/home/user/comps
     depends_on:
       - tei-reranking-service
     ports:
@@ -107,7 +107,7 @@ services:
     image: opea/dataprep-redis:latest
     container_name: dataprep-redis-server
     volumes:
-      - "/localdisk/minminho/GenAIComps/comps/:/home/user/comps/"
+      - ${WORKDIR}/GenAIComps/comps/:/home/user/comps/
     depends_on:
       - redis-vector-db
     ports:
@@ -125,8 +125,8 @@ services:
     image: opea/retrievaltool:latest
     container_name: retrievaltool-xeon-backend-server
     volumes: 
-      - /localdisk/minminho/GenAIComps/comps/:/home/user/GenAIComps/comps/
-      - /localdisk/minminho/GenAIExamples/AgenticRAG/retrieval_tool/:/home/user/script/
+      - ${WORKDIR}/GenAIComps/comps/:/home/user/GenAIComps/comps/
+      - ${WORKDIR}/GenAIExamples/AgenticRAG/retrieval_tool/:/home/user/script/
     depends_on:
       - redis-vector-db
       - tei-embedding-service
