@@ -1,6 +1,7 @@
 import requests
 import json
 import argparse
+import pandas as pd
 
 def query_retrieval_tool(url, query):
     data = {"text":query}
@@ -9,17 +10,14 @@ def query_retrieval_tool(url, query):
     # print(response)
     print(response.json()["text"])
 
-def get_query(args):
-    query = []
-    n = 0
-    with open(args.query_file, "r") as f:
-        for line in f:
-            data = json.loads(line)
-            query.append(data["query"])
-            n += 1
-            if n > 3:
-                break
-    return query
+def get_test_dataset(args):
+    if args.query_file.endswith('.jsonl'):
+        df = pd.read_json(args.query_file, lines=True, convert_dates=False)
+    elif args.query_file.endswith('.csv'):
+        df = pd.read_csv(args.query_file)
+    else:
+        raise ValueError("Invalid file format")
+    return df
             
 
 
@@ -36,9 +34,12 @@ if __name__ == "__main__":
     endpoint = "{port}/v1/{mega}".format(port = port, mega=megaservice)
     url = "http://{host_ip}:{endpoint}".format(host_ip=host_ip, endpoint=endpoint)
 
-    query_list = get_query(args)
+    df = get_test_dataset(args)
 
-    for q in query_list:
+    for n, row in df.iterrows():
+        q = row['query']
         print('Query: {}'.format(q))
         query_retrieval_tool(url, q)
+        if n >2:
+            break
 
