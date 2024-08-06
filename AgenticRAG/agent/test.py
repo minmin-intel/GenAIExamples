@@ -2,7 +2,6 @@ from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage, AIMessage
 from tools.tools import get_all_available_tools
-from tools.tools import search_knowledge_base, get_grammy_award_count_by_artist, get_artist_all_works
 from model import setup_hf_tgi_client
 import argparse
 import json
@@ -74,13 +73,13 @@ def run_agent(inputs, config, graph):
     # graph.step_timeout = 1200
     try:
         for s in graph.stream(inputs, config=config, stream_mode="values"):
-            # message = s["messages"][-1]
-            # if isinstance(message, tuple):
-            #     print(message)
-            # else:
-            #     message.pretty_print()
-            for k, v in s.items():
-                print("*{}:\n{}".format(k,v))
+            message = s["messages"][-1]
+            if isinstance(message, tuple):
+                print(message)
+            else:
+                message.pretty_print()
+            # for k, v in s.items():
+            #     print("*{}:\n{}".format(k,v))
 
         if "output" in s: # DocGrader
             # print('output key in state')
@@ -115,8 +114,9 @@ def run_agent(inputs, config, graph):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
-    parser.add_argument("--agent_type", type=str, default="react_tool_selection")
+    parser.add_argument("--agent_type", type=str, default="react")
     parser.add_argument("--use_all_tools", type=bool, default=False)
+    parser.add_argument("--use_advanced_retrieval", type=bool, default=True)
     parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--max_new_tokens", type=int, default=256)
     parser.add_argument("--top_k", type=int, default=50)
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     parser.add_argument("--embed_model", type=str, default="BAAI/bge-base-en-v1.5", help="embedding model for tools selection")
     parser.add_argument("--k", type=int, default=5, help="num of tools to be selected")
     parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_music_49queries_meta.csv", help="query file")
-    parser.add_argument("--quick_test", type=bool, default=False)
+    parser.add_argument("--quick_test", type=bool, default=True)
     args = parser.parse_args()
     print(args)
 
@@ -142,7 +142,9 @@ if __name__ == "__main__":
         # query_time=["03/21/2024, 23:37:29 PT"]
         # query = "who has had more number one hits on the us billboard r&b/hip-hop songs chart, janet jackson or aretha franklin?"
         query_time = "03/13/2024, 09:42:59 PT"
-        query = "what is the most popular song on billboard in 2024-02-28?"
+        # query = "what is the most popular song on billboard in 2024-02-28?"
+        # query = "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?"
+        query = "when did dolly parton's song, blown away, come out?"
         df = pd.DataFrame({"query": [query], "query_time": [query_time]})
     else:
         df = get_test_dataset(args)
@@ -151,6 +153,27 @@ if __name__ == "__main__":
     output_dir = "/home/user/datasets/crag_results/"
     filename = "crag_music_49queries_react_selecttool_gpt4omini.jsonl"
     output_file = output_dir + filename
+
+    if args.use_advanced_retrieval:
+        from agent import RetrievalDocGrader
+        from langchain_core.tools import tool
+
+        retrieval_agent = RetrievalDocGrader(args).app
+        @tool
+        def search_knowledge_base(query:str)->str:
+            '''Search knowledge base for a given query. Returns text related to the query.'''
+            inputs = {
+                "messages": [("user", query)],
+            }
+            for s in retrieval_agent.stream(inputs, config={"recursion_limit": 10}, stream_mode="values"):
+                for k, v in s.items():
+                    print("**RETRIEVAL TOOL** {}:\n{}".format(k,v))
+            context = s["output"]
+            print('**Retrieval Tool output: ', context)
+            return context
+
+    else:
+        from tools.tools import search_knowledge_base
 
         
     if args.agent_type=="react_tool_selection":
@@ -165,7 +188,8 @@ if __name__ == "__main__":
             # select tools based on query
             top_k_tools = select_tools_for_query(query, tools_embeddings, model, args.k, tools_descriptions)
             print('****Selected tools: ', top_k_tools)
-            selected_tools = get_selected_tools(top_k_tools)
+            selected_tools = get_selected_tools(top_k_tools) # top k APIs
+            selected_tools.append(search_knowledge_base) # always include retrieval tool
             # create react agent with selected tools
             graph = init_agent(args, selected_tools)
             # run agent
@@ -196,9 +220,10 @@ if __name__ == "__main__":
         if args.use_all_tools:
             print('Using all tools....')
             tools = get_all_available_tools()
+            tools = [search_knowledge_base] + tools # add retrieval tool
         else:
             print('Using only retrieval tool....')
-        tools = [search_knowledge_base]
+            tools = [search_knowledge_base]
         graph = init_agent(args, tools)
         n = 0
         for _, row in df.iterrows():

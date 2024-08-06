@@ -10,12 +10,13 @@ import os
 import pandas as pd
 
 def get_tools_descriptions():
+    # get descriptions of all APIs
+    # search_knowledge_base is not included
     tools = get_all_available_tools()
     function_info = []
     for tool in tools:
         function_name = tool.name
         doc_string = tool.description
-        # print("{}: {}".format(function_name, doc_string))
         if function_name != "search_knowledge_base":
             function_info.append("{}: {}".format(function_name, doc_string))
         # print("-"*50)
@@ -38,8 +39,6 @@ def select_tools_for_query(query, tools_embedding, model, topk, tools_descriptio
     query_embedding = model.encode(query)
     similarities = model.similarity(query_embedding, tools_embedding).flatten() # 1D array
     top_k_tools = get_topk_tools(topk, tools_descriptions, similarities)
-    # always provide search_knowledge_base tool
-    top_k_tools.append("search_knowledge_base")
     return top_k_tools
 
 def get_tool_with_name(tool_name, tools):

@@ -439,3 +439,76 @@ class RAGAgentDocGraderV1(BaseAgent):
         else:
             return False
 
+class RetrievalDocGrader(BaseAgent):
+    def __init__(self, args):
+        if args.use_hf_tgi:
+            print('*************Using HF TGI LLM ENDPOINT**********')
+            self.llm_endpoint = setup_llm(args)
+        elif args.use_openai:
+            print('*************Using OpenAI API**********')
+            self.llm_endpoint = ChatOpenAI(model="gpt-4o-mini-2024-07-18", temperature=0.8)
+        
+        # Define Nodes
+        document_grader = DocumentGraderV1(self.llm_endpoint, args.model_id)
+        rewriter = Rewriter(self.llm_endpoint)
+
+        # Define graph
+        workflow = StateGraph(AgentStateV1)
+
+        # Define the nodes we will cycle between
+        # workflow.add_node("agent", rag_agent)
+        workflow.add_node("retrieve", self.retriever)
+        workflow.add_node("doc_grader", document_grader)
+        workflow.add_node("rewrite", rewriter)
+        # workflow.add_node("generate", text_generator)
+
+        # connect as graph
+        workflow.add_edge(START, "retrieve")
+        # workflow.add_conditional_edges(
+        #     "agent",
+        #     tools_condition,
+        #     {
+        #         "tools": "retrieve",  # if tools_condition return 'tools', then go to 'retrieve'
+        #         END: END,  # if tools_condition return 'END', then go to END
+        #     },
+        # )
+
+        workflow.add_edge("retrieve", "doc_grader")
+
+        workflow.add_conditional_edges(
+            "doc_grader",
+            self.should_retry,
+            {
+                False: END,  
+                True: "rewrite",  
+            },
+        )
+        # workflow.add_edge("generate", END)
+        # workflow.add_edge("rewrite", "agent")
+
+        self.app = workflow.compile()
+    
+    def retriever(self, state):
+        from tools.tools import search_knowledge_base
+        print("---Retrieval Tool starts retrieving docs---")
+        messages = state["messages"]
+        question = messages[-1].content # latest query, either original or rewritten
+
+        response = search_knowledge_base(question)
+        # print('Retrieved docs: ', response)
+        return {"messages": [response], "output": response}
+    
+
+    def should_retry(self, state):
+        # first check how many retry attempts have been made
+        num_retry = 0
+        for m in state['messages']:
+            if instruction in m.content:
+                num_retry += 1
+
+        print("**********Num retry: ", num_retry)
+        
+        if (num_retry <MAX_RETRY) and (state["doc_score"] == "rewrite"):
+            return True
+        else:
+            return False

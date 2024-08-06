@@ -6,10 +6,6 @@ from tools.pycragapi import CRAG
 @tool
 def search_knowledge_base(query:str)->str:
     '''Search knowledge base for a given query. Returns text related to the query.'''
-    # host_ip = os.environ.get("RETRIEVAL_HOST_IP", "localhost")
-    # port = "8889"
-    # retrieval_endpoint = "{port}/v1/{mega}".format(port = port, mega="retrievaltool")
-    # retrieval_url = "http://{host_ip}:{endpoint}".format(host_ip=host_ip, endpoint=retrieval_endpoint)
     retrieval_url = os.environ.get("RETRIEVAL_TOOL_URL", "http://localhost:8889/v1/retrievaltool")
     data = {"text":query}
     # header = {"Content-Type": "application/json"}
@@ -17,6 +13,7 @@ def search_knowledge_base(query:str)->str:
     response = requests.post(retrieval_url, json=data, proxies=proxies) #, headers=header)
     return response.json()["text"]
 
+   
 
 @tool
 def search_artist_entity_by_name(artist_name: str) -> dict: 
@@ -139,8 +136,7 @@ def get_artist_all_works(artist_name: str) -> dict:
 
 
 def get_all_available_tools():
-    tools = [search_knowledge_base, 
-         search_artist_entity_by_name, 
+    tools = [search_artist_entity_by_name, 
          search_song_entity_by_name, 
          get_billboard_rank_date, 
          get_billboard_attributes, 
