@@ -9,6 +9,7 @@ import pandas as pd
 from utils import get_test_dataset, save_as_csv, save_results
 
 NUM_LLM_CALLS_BY_RETRIEVAL_TOOL = 0
+NUM_TOKENS_BY_RETRIEVAL_TOOL = 0
 
 def init_agent(args, tools):
     if "react" in args.agent_type:
@@ -91,7 +92,7 @@ def run_agent(inputs, config, graph):
             response = s["messages"][-1].content
             context = get_trace(s["messages"])
         print('***Final output:\n{} \n****End of output****'.format(response))
-        print('***Context:\n{} \n****End of context****'.format(context))
+        # print('***Context:\n{} \n****End of context****'.format(context))
     except Exception as e:
         print("***Error: {}".format(e))
         response = str(e)
@@ -131,30 +132,33 @@ if __name__ == "__main__":
     parser.add_argument("--embed_model", type=str, default="BAAI/bge-base-en-v1.5", help="embedding model for tools selection")
     parser.add_argument("--k", type=int, default=5, help="num of tools to be selected")
     parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_music_49queries_meta.csv", help="query file")
-    parser.add_argument("--quick_test", type=bool, default=True)
+    parser.add_argument("--quick_test", type=bool, default=False)
     args = parser.parse_args()
     print(args)
 
-    RECURSION_LIMIT = 3
+    RECURSION_LIMIT = 10
     config = {"recursion_limit": RECURSION_LIMIT}
-
-    if args.quick_test:
-        # query=["how many songs have been released by barbra streisand since winning he/she won their first grammy?"]
-        # query_time=["03/21/2024, 23:37:29 PT"]
-        # query = "who has had more number one hits on the us billboard r&b/hip-hop songs chart, janet jackson or aretha franklin?"
-        query_time = "03/13/2024, 09:42:59 PT"
-        # query = "what is the most popular song on billboard in 2024-02-28?"
-        query = "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?"
-        # query = "when did dolly parton's song, blown away, come out?"
-        # query = "who has played drums for the red hot chili peppers?"
-        df = pd.DataFrame({"query": [query], "query_time": [query_time]})
-    else:
-        df = get_test_dataset(args)
-
     output = []
     output_dir = "/home/user/datasets/crag_results/"
-    filename = "crag_music_49queries_react_selecttool_gpt4omini.jsonl"
+    filename = "crag_music_49queries_react_advancedretrieval_gpt4omini.jsonl"
     output_file = output_dir + filename
+
+    if args.quick_test:
+        query= [
+            # "how many reading and leeds festivals has the band foo fighters headlined?",
+            "how many songs has the band the beatles released that have been recorded at abbey road studios?",
+            # "what's the most recent album from the founder of ysl records?",
+            # "when did dolly parton's song, blown away, come out?"
+        ]
+        query_time=[
+            "03/21/2024, 23:37:29 PT", 
+            # "03/21/2024, 23:37:29 PT",
+            # "03/21/2024, 23:37:29 PT",
+            # "03/21/2024, 23:37:29 PT",
+            ]
+        df = pd.DataFrame({"query": query, "query_time": query_time})
+    else:
+        df = get_test_dataset(args)
 
 
     if args.use_advanced_retrieval:
@@ -172,24 +176,27 @@ if __name__ == "__main__":
                 "not_relevant":"",
                 "num_retrieve":0,
                 "num_rewrites":0,
-                "num_grade":0
+                "num_grade":0,
+                "num_tokens":0,
             }
             
             for s in retrieval_agent.stream(inputs, config={"recursion_limit": 10}, stream_mode="values"):
                 for k, v in s.items():
-                    print("**RETRIEVAL TOOL** {}:\n{}".format(k,v))
+                    if k in ["num_retrieve", "num_rewrites", "num_grade", "num_tokens"]:
+                        print("**RETRIEVAL TOOL** {}:\n{}".format(k,v))
 
             context = s["relevant"]
             print('**Retrieval Tool output: ', context)
             global NUM_LLM_CALLS_BY_RETRIEVAL_TOOL
-            NUM_LLM_CALLS_BY_RETRIEVAL_TOOL += (s["num_rewrites"]+s['num_grade'])
+            global NUM_TOKENS_BY_RETRIEVAL_TOOL
+            NUM_LLM_CALLS_BY_RETRIEVAL_TOOL = (s["num_rewrites"]+s['num_grade'])
+            NUM_TOKENS_BY_RETRIEVAL_TOOL = s["num_tokens"]
             if context:    
                 return context
             else:
                 ret = "No relevant information found in the knowledge base."
                 print("****"+ret)
-                return ret
-            
+                return ret            
 
     else:
         from tools.tools import search_knowledge_base
@@ -206,7 +213,7 @@ if __name__ == "__main__":
             query = row["query"]
             # select tools based on query
             top_k_tools = select_tools_for_query(query, tools_embeddings, model, args.k, tools_descriptions)
-            print('****Selected tools: ', top_k_tools)
+            print('****Selected APIs: ', top_k_tools)
             selected_tools = get_selected_tools(top_k_tools) # top k APIs
             selected_tools.append(search_knowledge_base) # always include retrieval tool
             # create react agent with selected tools
@@ -260,8 +267,11 @@ if __name__ == "__main__":
                 }
 
             res, context, n, ntok = run_agent(inputs, config, graph)
-            print(NUM_LLM_CALLS_BY_RETRIEVAL_TOOL)
-            print(NUM_LLM_CALLS_BY_RETRIEVAL_TOOL+1)
+            print("LLM calls by retrieval tool: ", NUM_LLM_CALLS_BY_RETRIEVAL_TOOL)
+            print("Total tokens by retrieval tool: ", NUM_TOKENS_BY_RETRIEVAL_TOOL)
+            print("Total LLM calls: ", n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL)
+            print("Total tokens: ", ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL)
+            print("==**"*100)
 
             output.append(
                 {
@@ -269,8 +279,8 @@ if __name__ == "__main__":
                     "query_time": t,
                     "answer": res,
                     "context": context,
-                    "num_llm_calls": n,
-                    "total_tokens": ntok,
+                    "num_llm_calls": n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL,
+                    "total_tokens": ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL,
                     "ref_answer": row["answer"],
                     "question_type": row["question_type"],
                     "static_or_dynamic": row["static_or_dynamic"],

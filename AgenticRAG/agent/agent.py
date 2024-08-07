@@ -443,8 +443,9 @@ class RetrievalState(TypedDict):
     num_retrieve: int
     num_rewrites: int
     num_grade: int
+    num_tokens: int
 
-
+from langchain_community.callbacks.manager import get_openai_callback
 class DocumentGraderForRetrieval:
     """Determines whether the retrieved documents are relevant to the question.
 
@@ -474,19 +475,37 @@ class DocumentGraderForRetrieval:
         output_parser = PydanticToolsParser(tools=[grade], first_tool_only=True)
         self.chain = prompt | llm | output_parser
 
-    def __call__(self, query, doc) -> Literal["relevant", "not_relevant"]:
-        print("---CALL DocumentGrader---")
-        scored_result = self.chain.invoke({"question": query, "context": doc})
-        score = scored_result.binary_score
-
-        if score.startswith("yes"):
-            print("---DECISION: DOCS RELEVANT---")
-            return "relevant"
-
-        else:
-            print("---DECISION: DOCS NOT RELEVANT---")
-            
-            return "not_relevant"
+    def __call__(self, state):
+        print("---CALL DocumentGrader---")       
+        query = state["messages"][0].content
+        last_message = state["messages"][-1]
+        # we split the retrieved content by newlines
+        docs = last_message.content.split('\n') 
+        num_grade = state["num_grade"]
+        tokens = state["num_tokens"]
+        for doc in docs:
+            if (doc in state["relevant"]) or (doc in state["not_relevant"]):
+                print("---SKIPPED grading because already graded---")
+                pass # skip if already graded
+            else:
+                print(f'----Grading doc wrt to {query}---')
+                num_grade = num_grade + 1
+                with get_openai_callback() as cb:
+                    scored_result = self.chain.invoke({"question": query, "context": doc})
+                print(f"---Grader Total Tokens: {cb.total_tokens}")
+                tokens += cb.total_tokens
+                score = scored_result.binary_score
+                if score.startswith("yes"):
+                    print("---DECISION: DOCS RELEVANT---")
+                    if state["relevant"] == "":
+                        state["relevant"] = doc
+                    else:
+                        state["relevant"] = state["relevant"] + "\n"+doc
+                else:
+                    print("---DECISION: DOCS NOT RELEVANT---")
+                    state["not_relevant"] = state["not_relevant"]+"\n"+ doc
+        return {"relevant": state["relevant"], "not_relevant": state["not_relevant"], "num_grade": num_grade, "num_tokens": tokens}
+    
         
 class RewriterForRetrieval:
     """Transform the query to produce a better question.
@@ -511,11 +530,12 @@ class RewriterForRetrieval:
                 content=REWRITER_PROMPT.format(question=question),
             )
         ]
-
-        response = self.llm.invoke(msg)
+        with get_openai_callback() as cb:
+            response = self.llm.invoke(msg)
+        tokens = cb.total_tokens+state["num_tokens"]
         num_rewrites = state["num_rewrites"] + 1
         print('-----Rewritten question: ', response)
-        return {"messages": [response], "num_rewrites": num_rewrites}
+        return {"messages": [response], "num_rewrites": num_rewrites, "num_tokens": tokens}
     
 
 class RetrievalDocGrader(BaseAgent):
@@ -529,13 +549,13 @@ class RetrievalDocGrader(BaseAgent):
         
         # Define Nodes
         rewriter = RewriterForRetrieval(self.llm_endpoint)
-        self.document_grader = DocumentGraderForRetrieval(self.llm_endpoint, args.model_id)
+        document_grader = DocumentGraderForRetrieval(self.llm_endpoint, args.model_id)
 
         # Define graph
         workflow = StateGraph(RetrievalState)
 
         workflow.add_node("retrieve", self.retriever)
-        workflow.add_node("doc_grader", self.doc_grader)
+        workflow.add_node("doc_grader", document_grader)
         workflow.add_node("rewrite", rewriter)
 
         # connect as graph
@@ -563,31 +583,34 @@ class RetrievalDocGrader(BaseAgent):
         return {"messages": [response], "num_retrieve": num_retrieve}
     
 
-    def doc_grader(self, state):
-        query = state["messages"][0].content
-        last_message = state["messages"][-1]
-        # we split the retrieved content by newlines
-        docs = last_message.content.split('\n') 
-        num_grade = state["num_grade"]
-        for doc in docs:
-            if (doc in state["relevant"]) or (doc in state["not_relevant"]):
-                pass # skip if already graded
-            else:
-                print(f'----Grading doc wrt to {query}---')
-                num_grade = num_grade + 1
-                score = self.document_grader(query, doc)
-                if score == "relevant":
-                    state["relevant"] = state["relevant"] + "\n"+doc
-                else:
-                    state["not_relevant"] = state["not_relevant"]+"\n"+ doc
-        return {"relevant": state["relevant"], "not_relevant": state["not_relevant"], "num_grade": num_grade}
+    # def doc_grader(self, state):
+    #     query = state["messages"][0].content
+    #     last_message = state["messages"][-1]
+    #     # we split the retrieved content by newlines
+    #     docs = last_message.content.split('\n') 
+    #     num_grade = state["num_grade"]
+    #     for doc in docs:
+    #         if (doc in state["relevant"]) or (doc in state["not_relevant"]):
+    #             pass # skip if already graded
+    #         else:
+    #             print(f'----Grading doc wrt to {query}---')
+    #             num_grade = num_grade + 1
+    #             score = self.document_grader(query, doc)
+    #             if score == "relevant":
+    #                 state["relevant"] = state["relevant"] + "\n"+doc
+    #             else:
+    #                 state["not_relevant"] = state["not_relevant"]+"\n"+ doc
+    #     return {"relevant": state["relevant"], "not_relevant": state["not_relevant"], "num_grade": num_grade}
     
 
     def should_retry(self, state): 
-        # num_relevant_docs = len(state["relevant"].split('\n'))
-        if (state['relevant']=="") and (state["num_retrieve"] < 3):
+        if state['relevant'] == "":
+            num_relevant_docs = 0
+        else:
+            num_relevant_docs = len(state["relevant"].split('\n'))
+        if (num_relevant_docs<2) and (state["num_retrieve"] < 3):
             print("---Retry because no relevant doc and num_retrieve: {}.".format(state["num_retrieve"]))       
             return True
         else:
-            print("---End because found relevant doc and num_retrieve: {}.".format(state["num_retrieve"]))
+            print("---End because found relevant doc or num_retrieve: {}.".format(state["num_retrieve"]))
             return False
