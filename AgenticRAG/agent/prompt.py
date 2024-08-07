@@ -49,3 +49,18 @@ Please follow these guidelines when formulating your answer:
 3. Refer to the search results to form your answer.
 4. Give concise, factual and relevant answers.
 """
+
+REWRITER_PROMPT_TEMPLATE ="""\
+Reason about the underlying semantic intent and meaning of the original query and write an improved version.
+Original Query: {question}\n
+The re-formulated query should be affirmative form sentences.
+Reformulated Query:
+"""
+REWRITER_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "assistant",
+            REWRITER_PROMPT_TEMPLATE,
+        ),
+    ]
+)

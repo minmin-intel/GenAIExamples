@@ -24,7 +24,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_openai import ChatOpenAI
 
 # from ..base_agent import BaseAgent
-from prompt import rlm_rag_prompt, DOC_GRADER_PROMPT, RAGv1_PROMPT
+from prompt import rlm_rag_prompt, DOC_GRADER_PROMPT, RAGv1_PROMPT, REWRITER_PROMPT
 from model import setup_llm
 
 
@@ -158,13 +158,7 @@ class Rewriter:
 
         msg = [
             HumanMessage(
-                content=f""" \n
-        Look at the input and try to reason about the underlying semantic intent / meaning. \n
-        Here is the initial question:
-        \n ------- \n
-        {question}
-        \n ------- \n
-        Formulate an improved question: """,
+                content=REWRITER_PROMPT.format(question=question),
             )
         ]
 
@@ -439,6 +433,91 @@ class RAGAgentDocGraderV1(BaseAgent):
         else:
             return False
 
+
+class RetrievalState(TypedDict):
+    # The add_messages function defines how an update should be processed
+    # Default is to replace. add_messages says "append"
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    relevant: str
+    not_relevant: str
+    num_retrieve: int
+    num_rewrites: int
+    num_grade: int
+
+
+class DocumentGraderForRetrieval:
+    """Determines whether the retrieved documents are relevant to the question.
+
+    Args:
+        state (messages): The current state
+
+    Returns:
+        str: A decision for whether the documents are relevant or not
+    """
+
+    def __init__(self, llm_endpoint, model_id=None):
+        class grade(BaseModel):
+            """Binary score for relevance check."""
+
+            binary_score: str = Field(description="Relevance score 'yes' or 'no'")
+
+        # Prompt
+        prompt = PromptTemplate(
+            template=DOC_GRADER_PROMPT,
+            input_variables=["context", "question"],
+        )
+
+        if isinstance(llm_endpoint, HuggingFaceEndpoint):
+            llm = ChatHuggingFace(llm=llm_endpoint, model_id=model_id).bind_tools([grade])
+        elif isinstance(llm_endpoint, ChatOpenAI):
+            llm = llm_endpoint.bind_tools([grade])
+        output_parser = PydanticToolsParser(tools=[grade], first_tool_only=True)
+        self.chain = prompt | llm | output_parser
+
+    def __call__(self, query, doc) -> Literal["relevant", "not_relevant"]:
+        print("---CALL DocumentGrader---")
+        scored_result = self.chain.invoke({"question": query, "context": doc})
+        score = scored_result.binary_score
+
+        if score.startswith("yes"):
+            print("---DECISION: DOCS RELEVANT---")
+            return "relevant"
+
+        else:
+            print("---DECISION: DOCS NOT RELEVANT---")
+            
+            return "not_relevant"
+        
+class RewriterForRetrieval:
+    """Transform the query to produce a better question.
+
+    Args:
+        state (messages): The current state
+
+    Returns:
+        dict: The updated state with re-phrased question
+    """
+
+    def __init__(self, llm_endpoint):
+        self.llm = llm_endpoint
+
+    def __call__(self, state):
+        print("---TRANSFORM QUERY---")
+        messages = state["messages"]
+        question = messages[0].content
+
+        msg = [
+            HumanMessage(
+                content=REWRITER_PROMPT.format(question=question),
+            )
+        ]
+
+        response = self.llm.invoke(msg)
+        num_rewrites = state["num_rewrites"] + 1
+        print('-----Rewritten question: ', response)
+        return {"messages": [response], "num_rewrites": num_rewrites}
+    
+
 class RetrievalDocGrader(BaseAgent):
     def __init__(self, args):
         if args.use_hf_tgi:
@@ -449,32 +528,20 @@ class RetrievalDocGrader(BaseAgent):
             self.llm_endpoint = ChatOpenAI(model="gpt-4o-mini-2024-07-18", temperature=0.8)
         
         # Define Nodes
-        document_grader = DocumentGraderV1(self.llm_endpoint, args.model_id)
-        rewriter = Rewriter(self.llm_endpoint)
+        rewriter = RewriterForRetrieval(self.llm_endpoint)
+        self.document_grader = DocumentGraderForRetrieval(self.llm_endpoint, args.model_id)
 
         # Define graph
-        workflow = StateGraph(AgentStateV1)
+        workflow = StateGraph(RetrievalState)
 
-        # Define the nodes we will cycle between
-        # workflow.add_node("agent", rag_agent)
         workflow.add_node("retrieve", self.retriever)
-        workflow.add_node("doc_grader", document_grader)
+        workflow.add_node("doc_grader", self.doc_grader)
         workflow.add_node("rewrite", rewriter)
-        # workflow.add_node("generate", text_generator)
 
         # connect as graph
         workflow.add_edge(START, "retrieve")
-        # workflow.add_conditional_edges(
-        #     "agent",
-        #     tools_condition,
-        #     {
-        #         "tools": "retrieve",  # if tools_condition return 'tools', then go to 'retrieve'
-        #         END: END,  # if tools_condition return 'END', then go to END
-        #     },
-        # )
-
         workflow.add_edge("retrieve", "doc_grader")
-
+        workflow.add_edge("rewrite", "retrieve")
         workflow.add_conditional_edges(
             "doc_grader",
             self.should_retry,
@@ -483,32 +550,44 @@ class RetrievalDocGrader(BaseAgent):
                 True: "rewrite",  
             },
         )
-        # workflow.add_edge("generate", END)
-        # workflow.add_edge("rewrite", "agent")
-
         self.app = workflow.compile()
     
     def retriever(self, state):
         from tools.tools import search_knowledge_base
-        print("---Retrieval Tool starts retrieving docs---")
         messages = state["messages"]
         question = messages[-1].content # latest query, either original or rewritten
-
+        print('---Retrieval Tool search with Query: ', question)
         response = search_knowledge_base(question)
         # print('Retrieved docs: ', response)
-        return {"messages": [response], "output": response}
+        num_retrieve = state["num_retrieve"] + 1
+        return {"messages": [response], "num_retrieve": num_retrieve}
     
 
-    def should_retry(self, state):
-        # first check how many retry attempts have been made
-        num_retry = 0
-        for m in state['messages']:
-            if instruction in m.content:
-                num_retry += 1
+    def doc_grader(self, state):
+        query = state["messages"][0].content
+        last_message = state["messages"][-1]
+        # we split the retrieved content by newlines
+        docs = last_message.content.split('\n') 
+        num_grade = state["num_grade"]
+        for doc in docs:
+            if (doc in state["relevant"]) or (doc in state["not_relevant"]):
+                pass # skip if already graded
+            else:
+                print(f'----Grading doc wrt to {query}---')
+                num_grade = num_grade + 1
+                score = self.document_grader(query, doc)
+                if score == "relevant":
+                    state["relevant"] = state["relevant"] + "\n"+doc
+                else:
+                    state["not_relevant"] = state["not_relevant"]+"\n"+ doc
+        return {"relevant": state["relevant"], "not_relevant": state["not_relevant"], "num_grade": num_grade}
+    
 
-        print("**********Num retry: ", num_retry)
-        
-        if (num_retry <MAX_RETRY) and (state["doc_score"] == "rewrite"):
+    def should_retry(self, state): 
+        # num_relevant_docs = len(state["relevant"].split('\n'))
+        if (state['relevant']=="") and (state["num_retrieve"] < 3):
+            print("---Retry because no relevant doc and num_retrieve: {}.".format(state["num_retrieve"]))       
             return True
         else:
+            print("---End because found relevant doc and num_retrieve: {}.".format(state["num_retrieve"]))
             return False

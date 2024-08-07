@@ -8,6 +8,7 @@ import json
 import pandas as pd
 from utils import get_test_dataset, save_as_csv, save_results
 
+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL = 0
 
 def init_agent(args, tools):
     if "react" in args.agent_type:
@@ -73,13 +74,13 @@ def run_agent(inputs, config, graph):
     # graph.step_timeout = 1200
     try:
         for s in graph.stream(inputs, config=config, stream_mode="values"):
-            message = s["messages"][-1]
-            if isinstance(message, tuple):
-                print(message)
-            else:
-                message.pretty_print()
-            # for k, v in s.items():
-            #     print("*{}:\n{}".format(k,v))
+            # message = s["messages"][-1]
+            # if isinstance(message, tuple):
+            #     print(message)
+            # else:
+            #     message.pretty_print()
+            for k, v in s.items():
+                print("*{}:\n{}".format(k,v))
 
         if "output" in s: # DocGrader
             # print('output key in state')
@@ -134,7 +135,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-    RECURSION_LIMIT = 10
+    RECURSION_LIMIT = 3
     config = {"recursion_limit": RECURSION_LIMIT}
 
     if args.quick_test:
@@ -143,8 +144,9 @@ if __name__ == "__main__":
         # query = "who has had more number one hits on the us billboard r&b/hip-hop songs chart, janet jackson or aretha franklin?"
         query_time = "03/13/2024, 09:42:59 PT"
         # query = "what is the most popular song on billboard in 2024-02-28?"
-        # query = "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?"
-        query = "when did dolly parton's song, blown away, come out?"
+        query = "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?"
+        # query = "when did dolly parton's song, blown away, come out?"
+        # query = "who has played drums for the red hot chili peppers?"
         df = pd.DataFrame({"query": [query], "query_time": [query_time]})
     else:
         df = get_test_dataset(args)
@@ -154,6 +156,7 @@ if __name__ == "__main__":
     filename = "crag_music_49queries_react_selecttool_gpt4omini.jsonl"
     output_file = output_dir + filename
 
+
     if args.use_advanced_retrieval:
         from agent import RetrievalDocGrader
         from langchain_core.tools import tool
@@ -162,15 +165,31 @@ if __name__ == "__main__":
         @tool
         def search_knowledge_base(query:str)->str:
             '''Search knowledge base for a given query. Returns text related to the query.'''
+
             inputs = {
                 "messages": [("user", query)],
+                "relevant":"",
+                "not_relevant":"",
+                "num_retrieve":0,
+                "num_rewrites":0,
+                "num_grade":0
             }
+            
             for s in retrieval_agent.stream(inputs, config={"recursion_limit": 10}, stream_mode="values"):
                 for k, v in s.items():
                     print("**RETRIEVAL TOOL** {}:\n{}".format(k,v))
-            context = s["output"]
+
+            context = s["relevant"]
             print('**Retrieval Tool output: ', context)
-            return context
+            global NUM_LLM_CALLS_BY_RETRIEVAL_TOOL
+            NUM_LLM_CALLS_BY_RETRIEVAL_TOOL += (s["num_rewrites"]+s['num_grade'])
+            if context:    
+                return context
+            else:
+                ret = "No relevant information found in the knowledge base."
+                print("****"+ret)
+                return ret
+            
 
     else:
         from tools.tools import search_knowledge_base
@@ -241,6 +260,9 @@ if __name__ == "__main__":
                 }
 
             res, context, n, ntok = run_agent(inputs, config, graph)
+            print(NUM_LLM_CALLS_BY_RETRIEVAL_TOOL)
+            print(NUM_LLM_CALLS_BY_RETRIEVAL_TOOL+1)
+
             output.append(
                 {
                     "query": q,
