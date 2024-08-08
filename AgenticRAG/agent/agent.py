@@ -127,7 +127,7 @@ class RagAgent:
         print("---CALL RagAgent---")
         messages = state["messages"]
 
-        response = self.llm.invoke(messages) # response will be based on a list of messages
+        response = self.llm.invoke(messages) # response will be based on all messages so far
         # We return a list, because this will get added to the existing list
         return {"messages": [response], "output": response}
 
@@ -271,7 +271,7 @@ class RAGAgentwithLanggraph(BaseAgent):
 
 #================ DocGraderV1=========================
 instruction="Retrieved document is not sufficient or relevant to answer the query. Reformulate the query to search knowledge base again."
-MAX_RETRY=2
+MAX_RETRY=3
 
 class AgentStateV1(TypedDict):
     # The add_messages function defines how an update should be processed

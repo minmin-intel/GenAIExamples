@@ -33,7 +33,7 @@ def process_html_string(text):
     chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
     # drop blank lines
     final_text = '\n'.join(chunk for chunk in chunks if chunk)
-    print(final_text)
+    # print(final_text)
     return final_text
 
 def preprocess_data(input_file):
@@ -48,7 +48,6 @@ def preprocess_data(input_file):
             docs = data['search_results']
             
             for doc in docs:
-                print('PAGE RESULT:')
                 text = process_html_string(doc['page_result'])
                 chunks = split_text(text)
                 for chunk in chunks:
@@ -62,13 +61,19 @@ def preprocess_data(input_file):
                 #         print('Yes')
                 #     else:
                 #         print('No')
-                snippet.append({
-                    "query": data['query'],
-                    "domain": data['domain'],
-                    "doc":doc['page_snippet']})
+                chunks = split_text(doc['page_snippet'])
+                for chunk in chunks:
+                    snippet.append({
+                        "query": data['query'],
+                        "domain": data['domain'],
+                        "doc":chunk})
+                # snippet.append({
+                #     "query": data['query'],
+                #     "domain": data['domain'],
+                #     "doc":doc['page_snippet']})
                 
-                print('-----------------------------------')
-                break
+                # print('-----------------------------------')
+                # break
             
             # qa pairs without search results
             output = {}
@@ -77,9 +82,9 @@ def preprocess_data(input_file):
                     output[k] = v
             return_data.append(output)
 
-            n += 1
-            if n>=1:
-                break
+            # n += 1
+            # if n>=1:
+            #     break
 
     return snippet, return_data
 
@@ -109,11 +114,11 @@ if __name__ == '__main__':
         qa_pairs.extend(data)
     
     # group by domain
-    # domains = ["finance", "music", "movie", "sports", "open"]
-    domains =["music"]
+    domains = ["finance", "music", "movie", "sports", "open"]
+    # domains =["music"]
 
     for domain in domains:
-        with open(os.path.join(args.docout, "test_docs_"+domain + ".jsonl"), 'w') as f:
+        with open(os.path.join(args.docout, "crag_chunk2000_overlap400_all_docs_"+domain + ".jsonl"), 'w') as f:
             for doc in docs:
                 # print(doc.keys())
                 if doc['doc']!="" and doc['domain'] == domain:

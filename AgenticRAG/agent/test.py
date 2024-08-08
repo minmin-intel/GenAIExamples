@@ -13,12 +13,12 @@ NUM_TOKENS_BY_RETRIEVAL_TOOL = 0
 
 def init_agent(args, tools):
     if "react" in args.agent_type:
-        from prompt import REACT_SYS_MESSAGE
+        from prompt import REACT_SYS_MESSAGE_V2
         if args.use_hf_tgi:
             model = setup_hf_tgi_client(args)
         else:
             model = ChatOpenAI(model="gpt-4o-mini-2024-07-18", temperature=0)
-        graph = create_react_agent(model, tools = tools, state_modifier=REACT_SYS_MESSAGE)
+        graph = create_react_agent(model, tools = tools, state_modifier=REACT_SYS_MESSAGE_V2)
     elif args.agent_type=='doc_grader':
         # v0 
         # from agent import RAGAgentwithLanggraph
@@ -54,7 +54,7 @@ def get_total_tokens(messages):
                 else:
                     total_tokens += m.response_metadata['token_usage']['total_tokens']
             except:
-                total_tokens = 0
+                total_tokens = 500 #rough estimate
     return total_tokens
         
 
@@ -84,13 +84,13 @@ def run_agent(inputs, config, graph):
                 print("*{}:\n{}".format(k,v))
 
         if "output" in s: # DocGrader
-            # print('output key in state')
-            context = get_last_tool_message(s["messages"])
+            # context = get_last_tool_message(s["messages"])
             response = s['output']
         else:
             # print('output key not in state')
             response = s["messages"][-1].content
-            context = get_trace(s["messages"])
+
+        context = get_trace(s["messages"])
         print('***Final output:\n{} \n****End of output****'.format(response))
         # print('***Context:\n{} \n****End of context****'.format(context))
     except Exception as e:
@@ -116,7 +116,7 @@ def run_agent(inputs, config, graph):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
-    parser.add_argument("--agent_type", type=str, default="react", help="react, doc_grader, react_tool_selection")
+    parser.add_argument("--agent_type", type=str, default="react_tool_selection", help="react, doc_grader, react_tool_selection")
     parser.add_argument("--use_all_tools", type=bool, default=False)
     parser.add_argument("--use_advanced_retrieval", type=bool, default=False)
     parser.add_argument("--use_docgrader_as_tool", type=bool, default=True)
@@ -132,31 +132,31 @@ if __name__ == "__main__":
     parser.add_argument("--use_hf_tgi", type=bool, default=False)
     parser.add_argument("--embed_model", type=str, default="BAAI/bge-base-en-v1.5", help="embedding model for tools selection")
     parser.add_argument("--k", type=int, default=5, help="num of tools to be selected")
-    parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_music_49queries_meta.csv", help="query file")
-    parser.add_argument("--quick_test", type=bool, default=True)
+    parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_20_answerable_queries.csv", help="query file")
+    parser.add_argument("--quick_test", type=bool, default=False)
     args = parser.parse_args()
     print(args)
 
-    RECURSION_LIMIT = 5
+    RECURSION_LIMIT = 10
     config = {"recursion_limit": RECURSION_LIMIT}
     output = []
     output_dir = "/home/user/datasets/crag_results/"
-    filename = "crag_music_retest_docgrader_5queries_gpt4omini.jsonl"
+    filename = "crag_20queries_react_docgradertool_top5apis_v2sysm_gpt4omini.jsonl"
     output_file = output_dir + filename
 
     if args.quick_test:
         query= [
             # "how many reading and leeds festivals has the band foo fighters headlined?",
             # "how many songs has the band the beatles released that have been recorded at abbey road studios?",
-            # "what's the most recent album from the founder of ysl records?",
+            "what's the most recent album from the founder of ysl records?",
             # "when did dolly parton's song, blown away, come out?"
             # "what song topped the billboard chart on 2004-02-04?",
             # "what grammy award did edgar barrera win this year?",
-            "what's the most recent album from the founder of ysl records?",
+            "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?",
         ]
         query_time=[
             "03/21/2024, 23:37:29 PT", 
-            # "03/21/2024, 23:37:29 PT",
+            "03/21/2024, 23:37:29 PT",
             # "03/21/2024, 23:37:29 PT",
             # "03/21/2024, 23:37:29 PT",
             ]
@@ -209,6 +209,8 @@ if __name__ == "__main__":
         @tool
         def search_knowledge_base(query:str)->str:
             '''Search knowledge base for a given query. Returns text related to the query.'''
+            global NUM_LLM_CALLS_BY_RETRIEVAL_TOOL
+            global NUM_TOKENS_BY_RETRIEVAL_TOOL
             inputs = {
                 "messages": [("user", query)],
                 "query_time": "",
@@ -216,8 +218,14 @@ if __name__ == "__main__":
             try:
                 for s in retrieval_agent.stream(inputs, config={"recursion_limit": 10}, stream_mode="values"):
                     for k, v in s.items():
-                        print("**RETRIEVAL TOOL** {}:\n{}".format(k,v))
-                context = s["output"]            
+                        if k != "messages":
+                            print("**RETRIEVAL TOOL** {}:\n{}".format(k,v))
+                context = s["output"]
+
+                # get statistics
+                NUM_LLM_CALLS_BY_RETRIEVAL_TOOL += get_num_llm_calls(s["messages"])
+                NUM_TOKENS_BY_RETRIEVAL_TOOL += get_total_tokens(s["messages"])   
+
                 return context
             except Exception as e:
                 ret = "No relevant information found in the knowledge base."
@@ -261,8 +269,8 @@ if __name__ == "__main__":
                 {
                     "query": q,
                     "query_time": t,
-                    "answer": res,
                     "ref_answer": row["answer"],
+                    "answer": res,
                     "context": context,
                     "num_llm_calls": n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL,
                     "total_tokens": ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL,  
@@ -272,6 +280,8 @@ if __name__ == "__main__":
                 }
             )
             save_results(output_file, output)
+            NUM_TOKENS_BY_RETRIEVAL_TOOL = 0
+            NUM_LLM_CALLS_BY_RETRIEVAL_TOOL = 0
         
     else:
         if args.use_all_tools:
@@ -308,11 +318,11 @@ if __name__ == "__main__":
                 {
                     "query": q,
                     "query_time": t,
+                    "ref_answer": row["answer"],
                     "answer": res,
                     "context": context,
                     "num_llm_calls": n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL,
                     "total_tokens": ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL,
-                    "ref_answer": row["answer"],
                     "question_type": row["question_type"],
                     "static_or_dynamic": row["static_or_dynamic"],
                 }
@@ -321,6 +331,8 @@ if __name__ == "__main__":
             # n+=1
             # if n>=2:
             #     break
+            NUM_TOKENS_BY_RETRIEVAL_TOOL = 0
+            NUM_LLM_CALLS_BY_RETRIEVAL_TOOL = 0
     
     save_results(output_file, output)
     save_as_csv(output_file)

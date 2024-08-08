@@ -50,6 +50,17 @@ Please follow these guidelines when formulating your answer:
 4. Give concise, factual and relevant answers.
 """
 
+REACT_SYS_MESSAGE_V2="""\
+Decompose the user request into a series of simple tasks when necessary and solve the problem step by step.
+When you cannot get the answer at first, do not give up. Reflect on the info you have from the tools and try to solve the problem in a different way.
+Please follow these guidelines when formulating your answer:
+1. If the question contains a false premise or assumption, answer “invalid question”.
+2. If you are uncertain or do not know the answer, respond with “I don’t know”.
+3. Give concise, factual and relevant answers.
+"""
+
+
+
 REWRITER_PROMPT_TEMPLATE ="""\
 Reason about the underlying semantic intent and meaning of the original query and write an improved version.
 Original Query: {question}\n
