@@ -433,7 +433,7 @@ class RAGAgentDocGraderV1(BaseAgent):
         else:
             return False
 
-
+#================ RetrievalAgentWithDocGrader=========================
 class RetrievalState(TypedDict):
     # The add_messages function defines how an update should be processed
     # Default is to replace. add_messages says "append"
@@ -581,28 +581,67 @@ class RetrievalDocGrader(BaseAgent):
         # print('Retrieved docs: ', response)
         num_retrieve = state["num_retrieve"] + 1
         return {"messages": [response], "num_retrieve": num_retrieve}
-    
+       
 
-    # def doc_grader(self, state):
-    #     query = state["messages"][0].content
-    #     last_message = state["messages"][-1]
-    #     # we split the retrieved content by newlines
-    #     docs = last_message.content.split('\n') 
-    #     num_grade = state["num_grade"]
-    #     for doc in docs:
-    #         if (doc in state["relevant"]) or (doc in state["not_relevant"]):
-    #             pass # skip if already graded
-    #         else:
-    #             print(f'----Grading doc wrt to {query}---')
-    #             num_grade = num_grade + 1
-    #             score = self.document_grader(query, doc)
-    #             if score == "relevant":
-    #                 state["relevant"] = state["relevant"] + "\n"+doc
-    #             else:
-    #                 state["not_relevant"] = state["not_relevant"]+"\n"+ doc
-    #     return {"relevant": state["relevant"], "not_relevant": state["not_relevant"], "num_grade": num_grade}
-    
+    def should_retry(self, state): 
+        if state['relevant'] == "":
+            num_relevant_docs = 0
+        else:
+            num_relevant_docs = len(state["relevant"].split('\n'))
+        if (num_relevant_docs<2) and (state["num_retrieve"] < 3):
+            print("---Retry because no relevant doc and num_retrieve: {}.".format(state["num_retrieve"]))       
+            return True
+        else:
+            print("---End because found relevant doc or num_retrieve: {}.".format(state["num_retrieve"]))
+            return False
+        
 
+#================ DocGraderV2=========================
+class RAGAgentDocGraderV2(BaseAgent):
+    def __init__(self, args, tools):
+        super().__init__(args, tools)
+
+        # Define Nodes
+        document_grader = DocumentGraderForRetrieval(self.llm_endpoint, args.model_id)
+        rag_agent = RagAgent(self.llm_endpoint, args.model_id, self.tools_descriptions)
+        text_generator = TextGeneratorV1(self.llm_endpoint)
+        retriever = Retriever.create(self.tools_descriptions)
+
+        # Define graph
+        workflow = StateGraph(RetrievalState)
+
+        # Define the nodes we will cycle between
+        workflow.add_node("agent", rag_agent)
+        workflow.add_node("retrieve", retriever)
+        workflow.add_node("doc_grader", document_grader)
+        workflow.add_node("generate", text_generator)
+
+        # connect as graph
+        workflow.add_edge(START, "agent")
+        workflow.add_conditional_edges(
+            "agent",
+            tools_condition,
+            {
+                "tools": "retrieve",  # if tools_condition return 'tools', then go to 'retrieve'
+                END: END,  # if tools_condition return 'END', then go to END
+            },
+        )
+
+        workflow.add_edge("retrieve", "doc_grader")
+
+        workflow.add_conditional_edges(
+            "doc_grader",
+            self.should_retry,
+            {
+                False: "generate",  
+                True: "agent",  
+            },
+        )
+        workflow.add_edge("generate", END)
+        # workflow.add_edge("rewrite", "agent")
+
+        self.app = workflow.compile()
+    
     def should_retry(self, state): 
         if state['relevant'] == "":
             num_relevant_docs = 0

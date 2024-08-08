@@ -2,6 +2,18 @@ import json
 import os
 import argparse
 import tqdm
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+def split_text(text, chunk_size=2000, chunk_overlap=400):
+    text_splitter = RecursiveCharacterTextSplitter(
+        # Set a really small chunk size, just to show.
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+        separators=["\n\n", "\n", ".", "!"],
+    )
+    return text_splitter.split_text(text)
 
 def process_html_string(text):
     from bs4 import BeautifulSoup
@@ -38,16 +50,23 @@ def preprocess_data(input_file):
             for doc in docs:
                 print('PAGE RESULT:')
                 text = process_html_string(doc['page_result'])
-                print('PAGE SNIPPET:\n', doc['page_snippet'])
-                for d in doc['page_snippet'].split('.'):
-                    if d in text:
-                        print('Yes')
-                    else:
-                        print('No')
+                chunks = split_text(text)
+                for chunk in chunks:
+                    snippet.append({
+                        "query": data['query'],
+                        "domain": data['domain'],
+                        "doc":chunk})
+                # print('PAGE SNIPPET:\n', doc['page_snippet'])
+                # for d in doc['page_snippet'].split('.'):
+                #     if d in text:
+                #         print('Yes')
+                #     else:
+                #         print('No')
                 snippet.append({
                     "query": data['query'],
                     "domain": data['domain'],
                     "doc":doc['page_snippet']})
+                
                 print('-----------------------------------')
                 break
             
@@ -90,14 +109,15 @@ if __name__ == '__main__':
         qa_pairs.extend(data)
     
     # group by domain
-    domains = ["finance", "music", "movie", "sports", "open"]
+    # domains = ["finance", "music", "movie", "sports", "open"]
+    domains =["music"]
 
-    # for domain in domains:
-    #     with open(os.path.join(args.docout, "crag_docs_"+domain + ".jsonl"), 'w') as f:
-    #         for doc in docs:
-    #             # print(doc.keys())
-    #             if doc['doc']!="" and doc['domain'] == domain:
-    #                 f.write(json.dumps(doc) + '\n')
+    for domain in domains:
+        with open(os.path.join(args.docout, "test_docs_"+domain + ".jsonl"), 'w') as f:
+            for doc in docs:
+                # print(doc.keys())
+                if doc['doc']!="" and doc['domain'] == domain:
+                    f.write(json.dumps(doc) + '\n')
 
     #     with open(os.path.join(args.qaout, "crag_qa_"+domain + ".jsonl"), 'w') as f:
     #         for d in qa_pairs:

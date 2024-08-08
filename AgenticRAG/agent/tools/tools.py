@@ -13,6 +13,16 @@ def search_knowledge_base(query:str)->str:
     response = requests.post(retrieval_url, json=data, proxies=proxies) #, headers=header)
     return response.json()["text"]
 
+
+@tool
+def retrieve_from_knowledge_base(query:str)->str:
+    '''Search knowledge base for a given query. Returns text related to the query.'''
+    retrieval_url = os.environ.get("RETRIEVAL_TOOL_URL", "http://localhost:8889/v1/retrievaltool")
+    data = {"text":query}
+    # header = {"Content-Type": "application/json"}
+    proxies = {"http": ""}
+    response = requests.post(retrieval_url, json=data, proxies=proxies) #, headers=header)
+    return response.json()["text"]
    
 
 @tool

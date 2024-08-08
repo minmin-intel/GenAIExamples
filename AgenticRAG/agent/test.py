@@ -116,9 +116,10 @@ def run_agent(inputs, config, graph):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
-    parser.add_argument("--agent_type", type=str, default="react")
+    parser.add_argument("--agent_type", type=str, default="react", help="react, doc_grader, react_tool_selection")
     parser.add_argument("--use_all_tools", type=bool, default=False)
-    parser.add_argument("--use_advanced_retrieval", type=bool, default=True)
+    parser.add_argument("--use_advanced_retrieval", type=bool, default=False)
+    parser.add_argument("--use_docgrader_as_tool", type=bool, default=True)
     parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--max_new_tokens", type=int, default=256)
     parser.add_argument("--top_k", type=int, default=50)
@@ -132,23 +133,26 @@ if __name__ == "__main__":
     parser.add_argument("--embed_model", type=str, default="BAAI/bge-base-en-v1.5", help="embedding model for tools selection")
     parser.add_argument("--k", type=int, default=5, help="num of tools to be selected")
     parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_music_49queries_meta.csv", help="query file")
-    parser.add_argument("--quick_test", type=bool, default=False)
+    parser.add_argument("--quick_test", type=bool, default=True)
     args = parser.parse_args()
     print(args)
 
-    RECURSION_LIMIT = 10
+    RECURSION_LIMIT = 5
     config = {"recursion_limit": RECURSION_LIMIT}
     output = []
     output_dir = "/home/user/datasets/crag_results/"
-    filename = "crag_music_49queries_react_advancedretrieval_gpt4omini.jsonl"
+    filename = "crag_music_retest_docgrader_5queries_gpt4omini.jsonl"
     output_file = output_dir + filename
 
     if args.quick_test:
         query= [
             # "how many reading and leeds festivals has the band foo fighters headlined?",
-            "how many songs has the band the beatles released that have been recorded at abbey road studios?",
+            # "how many songs has the band the beatles released that have been recorded at abbey road studios?",
             # "what's the most recent album from the founder of ysl records?",
             # "when did dolly parton's song, blown away, come out?"
+            # "what song topped the billboard chart on 2004-02-04?",
+            # "what grammy award did edgar barrera win this year?",
+            "what's the most recent album from the founder of ysl records?",
         ]
         query_time=[
             "03/21/2024, 23:37:29 PT", 
@@ -197,7 +201,29 @@ if __name__ == "__main__":
                 ret = "No relevant information found in the knowledge base."
                 print("****"+ret)
                 return ret            
-
+    elif args.use_docgrader_as_tool:
+        from langchain_core.tools import tool
+        from agent import RAGAgentDocGraderV1
+        from tools.tools import retrieve_from_knowledge_base
+        retrieval_agent = RAGAgentDocGraderV1(args, [retrieve_from_knowledge_base]).app
+        @tool
+        def search_knowledge_base(query:str)->str:
+            '''Search knowledge base for a given query. Returns text related to the query.'''
+            inputs = {
+                "messages": [("user", query)],
+                "query_time": "",
+            }
+            try:
+                for s in retrieval_agent.stream(inputs, config={"recursion_limit": 10}, stream_mode="values"):
+                    for k, v in s.items():
+                        print("**RETRIEVAL TOOL** {}:\n{}".format(k,v))
+                context = s["output"]            
+                return context
+            except Exception as e:
+                ret = "No relevant information found in the knowledge base."
+                print("****Exception in DocGrader tool: ", e)
+                print("****"+ret)
+                return ret
     else:
         from tools.tools import search_knowledge_base
 
@@ -226,6 +252,11 @@ if __name__ == "__main__":
                 "messages": [("user", prompt)],
             }
             res, context, n, ntok = run_agent(inputs, config, graph)
+            print("LLM calls by retrieval tool: ", NUM_LLM_CALLS_BY_RETRIEVAL_TOOL)
+            print("Total tokens by retrieval tool: ", NUM_TOKENS_BY_RETRIEVAL_TOOL)
+            print("Total LLM calls: ", n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL)
+            print("Total tokens: ", ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL)
+            print("==**"*100)
             output.append(
                 {
                     "query": q,
@@ -233,8 +264,8 @@ if __name__ == "__main__":
                     "answer": res,
                     "ref_answer": row["answer"],
                     "context": context,
-                    "num_llm_calls": n,
-                    "total_tokens": ntok,   
+                    "num_llm_calls": n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL,
+                    "total_tokens": ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL,  
                     "question_type": row["question_type"],
                     "static_or_dynamic": row["static_or_dynamic"],
                     "selected_tools": top_k_tools
