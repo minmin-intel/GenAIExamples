@@ -83,13 +83,12 @@ def run_agent(inputs, config, graph):
             for k, v in s.items():
                 print("*{}:\n{}".format(k,v))
 
-        if "output" in s: # DocGrader
-            # context = get_last_tool_message(s["messages"])
-            response = s['output']
-        else:
-            # print('output key not in state')
-            response = s["messages"][-1].content
-
+        # if "output" in s: # DocGrader
+        #     # context = get_last_tool_message(s["messages"])
+        #     response = s['output']
+        # else:
+        #     # print('output key not in state')
+        response = s["messages"][-1].content
         context = get_trace(s["messages"])
         print('***Final output:\n{} \n****End of output****'.format(response))
         # print('***Context:\n{} \n****End of context****'.format(context))

@@ -368,7 +368,7 @@ class TextGeneratorV1:
         response = self.rag_chain.invoke({"context": docs, "question": question, "time":query_time})
         print('@@@@ Used this doc for generation:\n', docs)
         print('@@@@ Generated response: ', response)
-        return {"output": response}
+        return {"messages": [response], "output": response}
     
 
 class RAGAgentDocGraderV1(BaseAgent):
