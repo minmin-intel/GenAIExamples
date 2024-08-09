@@ -5,10 +5,9 @@ import pandas as pd
 
 def query_retrieval_tool(url, query):
     data = {"text":query}
-    header = {"Content-Type": "application/json"}
+    # header = {"Content-Type": "application/json"}
     response = requests.post(url, json=data, proxies=proxies) #, headers=header)
-    # print(response)
-    print(response.json()["text"])
+    return response.json()['text']
 
 def get_test_dataset(args):
     if args.query_file.endswith('.jsonl'):
@@ -25,6 +24,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host_ip", type=str, default="localhost", help="host ip of the retrieval tool")
     parser.add_argument("--query_file", type=str, default=None, help="query jsonl file")
+    parser.add_argument("--output_file", type=str, default=None, help="output file")
     args = parser.parse_args()
     
     host_ip = args.host_ip
@@ -36,10 +36,16 @@ if __name__ == "__main__":
 
     df = get_test_dataset(args)
 
+    context_col = []
     for n, row in df.iterrows():
         q = row['query']
         print('Query: {}'.format(q))
-        query_retrieval_tool(url, q)
-        if n >2:
-            break
+        context = query_retrieval_tool(url, q)
+        print('Context: {}'.format(context))
+        print('-----------------------------------')
+        context_col.append(context)
+        # if n >2:
+        #     break
 
+    df['context'] = context_col
+    df.to_csv(args.output_file, index=False)

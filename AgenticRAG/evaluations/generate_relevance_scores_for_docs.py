@@ -76,20 +76,25 @@ def split_context_str_into_docs(context_str):
     return context_str.split("\n")
 
 def generate_relevance_scores_for_retrieved_docs(args, query, context, ref):
-    relevance_scores = []
+    # relevance_scores = []
     # split context
-    context_list = split_context_str_into_docs(context)
-    print('There are {} docs in the context'.format(len(context_list)))
+    # context_list = split_context_str_into_docs(context)
+    # print('There are {} docs in the context'.format(len(context_list)))
     
-    overall_relevance_score = int(run_openai_api(args, query, context, ref))
-    for doc in context_list:
-        if args.use_openai_api:
-            res = run_openai_api(args, query, doc, ref)
-        elif args.use_opea_llm_endpoint:
-            pass
-        else:
-            raise ValueError("ONLY OpenAI API or OPEA LLM endpoint are supported!")
-        relevance_scores.append(int(res))
+    if args.use_openai_api:
+        overall_relevance_score = int(run_openai_api(args, query, context, ref))
+    elif args.use_opea_llm_endpoint:
+        pass
+    else:
+        raise ValueError("ONLY OpenAI API or OPEA LLM endpoint are supported!")
+    # for doc in context_list:
+    #     if args.use_openai_api:
+    #         res = run_openai_api(args, query, doc, ref)
+    #     elif args.use_opea_llm_endpoint:
+    #         pass
+    #     else:
+    #         raise ValueError("ONLY OpenAI API or OPEA LLM endpoint are supported!")
+    #     relevance_scores.append(int(res))
     # average_relevance_score = sum(relevance_scores) / len(relevance_scores)
     return overall_relevance_score, relevance_scores
     
@@ -111,6 +116,15 @@ def save_relevance_scores_to_file(output, output_file):
         for d in output:
             f.write(json.dumps(d) + '\n')
 
+def get_test_dataset(args):
+    if args.query_file.endswith('.jsonl'):
+        df = pd.read_json(args.query_file, lines=True, convert_dates=False)
+    elif args.query_file.endswith('.csv'):
+        df = pd.read_csv(args.query_file)
+    else:
+        raise ValueError("Invalid file format")
+    return df
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_file', type=str, default=None)
@@ -127,7 +141,7 @@ if __name__ == '__main__':
     print(args)
 
     if args.score_retrieved_docs:
-        df_result = pd.read_json(args.result_file, lines=True)
+        df_result = get_test_dataset(args)
         df = pd.read_json(args.ref_file, lines=True)
         # df_result = df_result.sample(2) # for debugging
         scores = []
@@ -138,7 +152,7 @@ if __name__ == '__main__':
             ref = get_ref_answer(query, df)
             relevance_score, score_per_doc = generate_relevance_scores_for_retrieved_docs(args, query, context, ref)
             scores.append(relevance_score)
-            scores_per_doc.append(score_per_doc)
+            # scores_per_doc.append(score_per_doc)
             print('Query:\n{}\nContext:\n{}\nRef:\n{}'.format(query, context, ref))
             print('Relevance score: {}'.format(relevance_score))
             print('-'*50)
@@ -146,7 +160,7 @@ if __name__ == '__main__':
         average_score = sum(scores) / len(scores)
         print("Average relevance score of retrieved docs for {} queries: {}".format(df_result.shape[0],average_score))
         df_result["relevance_score"] = scores
-        df_result["relevance_scores_per_doc"] = scores_per_doc
+        # df_result["relevance_scores_per_doc"] = scores_per_doc
         df_result.to_json(args.result_file.replace('.jsonl', '_relevance_scores_{}.jsonl'.format(args.model)), lines=True, orient='records')
 
     elif args.score_candidate_docs:
@@ -174,6 +188,6 @@ if __name__ == '__main__':
                     "relevant": score
                 })
             
-        save_relevance_scores_to_file(output, args.result_file.replace('.jsonl', '_relevance_scores.jsonl'))
+        save_relevance_scores_to_file(output, args.query_file.replace('.jsonl', '_relevance_scores.jsonl'))
         
         

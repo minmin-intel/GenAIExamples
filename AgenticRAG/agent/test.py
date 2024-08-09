@@ -115,10 +115,10 @@ def run_agent(inputs, config, graph):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--llm_endpoint_url", type=str, default="localhost:8080")
-    parser.add_argument("--agent_type", type=str, default="react_tool_selection", help="react, doc_grader, react_tool_selection")
+    parser.add_argument("--agent_type", type=str, default="doc_grader", help="react, doc_grader, react_tool_selection")
     parser.add_argument("--use_all_tools", type=bool, default=False)
     parser.add_argument("--use_advanced_retrieval", type=bool, default=False)
-    parser.add_argument("--use_docgrader_as_tool", type=bool, default=True)
+    parser.add_argument("--use_docgrader_as_tool", type=bool, default=False)
     parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--max_new_tokens", type=int, default=256)
     parser.add_argument("--top_k", type=int, default=50)
@@ -131,31 +131,31 @@ if __name__ == "__main__":
     parser.add_argument("--use_hf_tgi", type=bool, default=False)
     parser.add_argument("--embed_model", type=str, default="BAAI/bge-base-en-v1.5", help="embedding model for tools selection")
     parser.add_argument("--k", type=int, default=5, help="num of tools to be selected")
-    parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_20_answerable_queries.csv", help="query file")
+    parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_music_49queries_meta.csv", help="query file")
     parser.add_argument("--quick_test", type=bool, default=False)
     args = parser.parse_args()
     print(args)
 
-    RECURSION_LIMIT = 10
+    RECURSION_LIMIT = 12
     config = {"recursion_limit": RECURSION_LIMIT}
     output = []
     output_dir = "/home/user/datasets/crag_results/"
-    filename = "crag_20queries_react_docgradertool_top5apis_v2sysm_gpt4omini.jsonl"
+    filename = "crag_49queries_docgraderv2_gpt4omini.jsonl"
     output_file = output_dir + filename
 
     if args.quick_test:
         query= [
-            # "how many reading and leeds festivals has the band foo fighters headlined?",
+            "how many reading and leeds festivals has the band foo fighters headlined?",
             # "how many songs has the band the beatles released that have been recorded at abbey road studios?",
-            "what's the most recent album from the founder of ysl records?",
+            # "what's the most recent album from the founder of ysl records?",
             # "when did dolly parton's song, blown away, come out?"
             # "what song topped the billboard chart on 2004-02-04?",
             # "what grammy award did edgar barrera win this year?",
-            "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?",
+            # "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?",
         ]
         query_time=[
             "03/21/2024, 23:37:29 PT", 
-            "03/21/2024, 23:37:29 PT",
+            # "03/21/2024, 23:37:29 PT",
             # "03/21/2024, 23:37:29 PT",
             # "03/21/2024, 23:37:29 PT",
             ]
