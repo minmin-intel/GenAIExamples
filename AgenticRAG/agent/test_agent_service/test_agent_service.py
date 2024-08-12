@@ -9,17 +9,17 @@ def generate_answer(url, prompt):
     proxies = {"http": ""}
     payload = {
         "query":prompt,
-        # "max_new_tokens":args.max_new_tokens,
-        # "top_k":10,
-        # "top_p":0.95,
-        # # "typical_p":0.95,
-        # "temperature":0.01,
-        # "repetition_penalty":1.03,
-        # "streaming":False
         } 
     response = requests.post(url, json=payload, proxies=proxies) #, headers=header)
-    print(response)
+    # print(response)
     return response.json()["text"]
+
+def save_results(output_file, output_list):       
+    with open(output_file, "w") as f:
+        for output in output_list:
+            f.write(json.dumps(output))
+            f.write("\n")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -34,18 +34,56 @@ if __name__ == "__main__":
     endpoint = "{port}/v1/chat/completions".format(port = port)
     url = "http://{host_ip}:{endpoint}".format(host_ip=host_ip, endpoint=endpoint)
 
-    output_list = []
 
     if args.query_file.endswith('.jsonl'):
         df = pd.read_json(args.query_file, lines=True, convert_dates=False)
     elif args.query_file.endswith('.csv'):
         df = pd.read_csv(args.query_file)
     
+    query= [
+            "weather in san francisco",
+            # "how many songs has the band the beatles released that have been recorded at abbey road studios?",
+            # "what's the most recent album from the founder of ysl records?",
+            # "when did dolly parton's song, blown away, come out?"
+            # "what song topped the billboard chart on 2004-02-04?",
+            # "what grammy award did edgar barrera win this year?",
+            # "who has had more number one hits on the us billboard hot 100 chart, michael jackson or elvis presley?",
+        ]
+    query_time=[
+        "08/11/2024, 23:37:29 PT", 
+        # "03/21/2024, 23:37:29 PT",
+        # "03/21/2024, 23:37:29 PT",
+        # "03/21/2024, 23:37:29 PT",
+        ]
+    df = pd.DataFrame({"query": query, "query_time": query_time})
+    
+    output_list = []
     n = 0
     for _, row in df.iterrows():
         q = row['query']
         t = row['query_time']
-        prompt = "Question: {} \nThe question was asked at: {}".format(q, t)
+        prompt = "Question: {}\nThe question was asked at: {}".format(q, t)
+        print('******Prompt:\n',prompt)
+        print("******Agent is working on the query")
+        # generate_answer(url, prompt)
+        # print('='*50)
         answer = generate_answer(url, prompt)
-        print(answer)
-        print('-------------------')
+        print('******Answer from agent:\n',answer)
+        print('='*50)
+        output_list.append(
+                {
+                    "query": q,
+                    "query_time": t,
+                    "ref_answer": row["answer"],
+                    "answer": answer,
+                    # "context": context,
+                    # "num_llm_calls": n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL,
+                    # "total_tokens": ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL,
+                    "question_type": row["question_type"],
+                    "static_or_dynamic": row["static_or_dynamic"],
+                }
+            )
+        save_results(args.output_file, output_list)
+        n += 1
+        if n > 1:
+            break

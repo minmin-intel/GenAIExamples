@@ -4,7 +4,7 @@ export recursion_limit=10
 export model="gpt-4o-mini-2024-07-18"
 export temperature=0
 export max_new_tokens=512
-export streaming=true
+export streaming=false
 export OPENAI_API_KEY=${OPENAI_API_KEY}
 
 docker compose -f docker_compose_agent_openai.yaml up -d

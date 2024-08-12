@@ -1,0 +1,30 @@
+services:
+  llm:
+    image: opea/comps-agent-langchain:latest
+    container_name: agent-endpoint-tgi
+    volumes:
+      - ${WORKDIR}/GenAIComps/comps/agent/langchain/:/home/user/comps/agent/langchain/
+    ports:
+      - "9090:9090"
+    ipc: host
+    environment:
+      ip_address: ${ip_address}
+      strategy: $strategy
+      recursion_limit: ${recursion_limit}
+      llm_engine: tgi
+      llm_endpoint_url: ${TGI_LLM_ENDPOINT}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      model: ${model}
+      temperature: ${temperature}
+      max_new_tokens: ${max_new_tokens}
+      streaming: ${streaming}
+      tools: /home/user/comps/agent/langchain/tools/custom_tools.yaml
+      require_human_feedback: false
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
+      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2}
+      LANGCHAIN_PROJECT: "opea-llm-service"
+    # restart: unless-stopped
