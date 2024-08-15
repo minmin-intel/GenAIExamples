@@ -10,9 +10,11 @@ def generate_answer(url, prompt):
     payload = {
         "query":prompt,
         } 
-    response = requests.post(url, json=payload, proxies=proxies) #, headers=header)
-    # print(response)
-    return response.json()["text"]
+    response = requests.post(url, json=payload, proxies=proxies)
+    answer = response.json()["text"]
+    num_llm_calls = response.json()["num_llm_calls"]
+
+    return answer, num_llm_calls
 
 def save_results(output_file, output_list):       
     with open(output_file, "w") as f:
@@ -63,11 +65,11 @@ if __name__ == "__main__":
         q = row['query']
         t = row['query_time']
         prompt = "Question: {}\nThe question was asked at: {}".format(q, t)
-        print('******Prompt:\n',prompt)
+        print('******Query:\n',prompt)
         print("******Agent is working on the query")
         # generate_answer(url, prompt)
         # print('='*50)
-        answer = generate_answer(url, prompt)
+        answer, n = generate_answer(url, prompt)
         print('******Answer from agent:\n',answer)
         print('='*50)
         output_list.append(
@@ -77,7 +79,7 @@ if __name__ == "__main__":
                     "ref_answer": row["answer"],
                     "answer": answer,
                     # "context": context,
-                    # "num_llm_calls": n+NUM_LLM_CALLS_BY_RETRIEVAL_TOOL,
+                    "num_llm_calls": n,
                     # "total_tokens": ntok+NUM_TOKENS_BY_RETRIEVAL_TOOL,
                     "question_type": row["question_type"],
                     "static_or_dynamic": row["static_or_dynamic"],
