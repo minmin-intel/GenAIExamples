@@ -14,7 +14,7 @@ def search_knowledge_base(query:str)->str:
     docs = response.json()["documents"]
     context = ""
     for doc in docs:
-        context += doc["text"] + "\n"
+        context += doc + "\n"
     return context
 
 
