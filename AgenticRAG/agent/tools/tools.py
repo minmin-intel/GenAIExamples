@@ -11,7 +11,11 @@ def search_knowledge_base(query:str)->str:
     # header = {"Content-Type": "application/json"}
     proxies = {"http": ""}
     response = requests.post(retrieval_url, json=data, proxies=proxies) #, headers=header)
-    return response.json()["text"]
+    docs = response.json()["documents"]
+    context = ""
+    for doc in docs:
+        context += doc["text"] + "\n"
+    return context
 
 
 @tool
