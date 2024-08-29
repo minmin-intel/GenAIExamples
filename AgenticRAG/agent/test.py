@@ -119,20 +119,20 @@ if __name__ == "__main__":
     parser.add_argument("--use_all_tools", type=bool, default=False)
     parser.add_argument("--use_advanced_retrieval", type=bool, default=False)
     parser.add_argument("--use_docgrader_as_tool", type=bool, default=False)
-    parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct")
-    parser.add_argument("--max_new_tokens", type=int, default=256)
+    parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3.1-70B-Instruct")
+    parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--top_k", type=int, default=50)
     parser.add_argument("--top_p", type=float, default=0.95)
-    parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--temperature", type=float, default=0.01)
     parser.add_argument("--repetition_penalty", type=float, default=1.2)
     parser.add_argument("--return_full_text", type=bool, default=False)
     parser.add_argument("--streaming", type=bool, default=False)
-    parser.add_argument("--use_openai", type=bool, default=True)
-    parser.add_argument("--use_hf_tgi", type=bool, default=False)
+    parser.add_argument("--use_openai", type=bool, default=False)
+    parser.add_argument("--use_hf_tgi", type=bool, default=True)
     parser.add_argument("--embed_model", type=str, default="BAAI/bge-base-en-v1.5", help="embedding model for tools selection")
     parser.add_argument("--k", type=int, default=5, help="num of tools to be selected")
     parser.add_argument("--query_file", type=str, default="/home/user/datasets/crag_qas/crag_music_49queries_meta.csv", help="query file")
-    parser.add_argument("--quick_test", type=bool, default=False)
+    parser.add_argument("--quick_test", type=bool, default=True)
     args = parser.parse_args()
     print(args)
 
@@ -145,8 +145,8 @@ if __name__ == "__main__":
 
     if args.quick_test:
         query= [
-            "how many reading and leeds festivals has the band foo fighters headlined?",
-            # "how many songs has the band the beatles released that have been recorded at abbey road studios?",
+            # "how many reading and leeds festivals has the band foo fighters headlined?",
+            "how many songs has the band the beatles released that have been recorded at abbey road studios?",
             # "what's the most recent album from the founder of ysl records?",
             # "when did dolly parton's song, blown away, come out?"
             # "what song topped the billboard chart on 2004-02-04?",
@@ -290,6 +290,7 @@ if __name__ == "__main__":
         else:
             print('Using only retrieval tool....')
             tools = [search_knowledge_base]
+        print("Initializing agent...")
         graph = init_agent(args, tools)
         n = 0
         for _, row in df.iterrows():

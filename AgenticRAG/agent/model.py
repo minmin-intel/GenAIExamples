@@ -26,8 +26,8 @@ def setup_hf_tgi_client(args):
     
     llm = setup_llm(args)
 
-    print('Testing llm endpoint...')
-    print(llm.invoke("Hello!"))
+    # print('Testing llm endpoint...')
+    # print(llm.invoke("Hello!"))
 
     model = ChatHuggingFace(llm=llm, model_id=args.model_id)
 
