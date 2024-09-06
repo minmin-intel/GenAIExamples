@@ -1,10 +1,17 @@
 import pandas as pd
 import os
+from typing import Type
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.tools import BaseTool
+from langchain_community.utilities import SQLDatabase
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from langchain_core.tools import tool
+from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool, ListSQLDatabaseTool, QuerySQLCheckerTool, InfoSQLDatabaseTool
 
 DESCRIPTION_FOLDER="/localdisk/minminho/TAG-Bench/dev_folder/dev_databases/california_schools/database_description/"
 
 def get_column_descriptions(df):
-    output = "Column: Description\n"
+    output = ""
     for _, row in df.iterrows():
         col_name = row["original_column_name"]
         if pd.isnull(row["column_description"]) and (not pd.isnull(row["value_description"])):
@@ -20,15 +27,67 @@ def get_column_descriptions(df):
         output += f"{col_name}: {description}\n"
     return output
 
+@tool
+def get_table_info(table_names:str)->str:
+    '''Get the names and descriptions of all the columns in a table.
+    Args:
+        table_names: A comma-separated list of the table names for which to return the schema. Example input: 'table1, table2, table3'
+    '''
+    table_names = table_names.split(",")
+    output = ""
+    for table_name in table_names:
+        filename = os.path.join(DESCRIPTION_FOLDER, f"{table_name.strip()}.csv")
+        df = pd.read_csv(filename)
+        des = get_column_descriptions(df)
+        output += f"Table: {table_name}\n----------\n{des}\n\n"
+    return output
 
-def get_table_info(table_name:str):
-    filename = os.path.join(DESCRIPTION_FOLDER, f"{table_name}.csv")  
-    df = pd.read_csv(filename)
-    return get_column_descriptions(df)
 
-# if __name__ == "__main__":
-#     print(get_table_info("schools"))
-#     print("====================================")
-#     print(get_table_info("satscores"))
-#     print("====================================")
-#     print(get_table_info("frpm"))
+class _TableInfoToolInput(BaseModel):
+    table_name: str = Field(
+        ...,
+        description=(
+            "the table name for which to return the column names and descriptions. "
+        ),
+    )
+
+class TableInfoTool(BaseTool):
+    name: str = "sql_table_info"
+    description: str = "Get the names and descriptions of all the columns in a table."
+    args_schema: Type[BaseModel] = _TableInfoToolInput
+
+    def _run(self, table_name: str) -> str:
+        return get_table_info(table_name)
+
+
+def get_database(path):
+    uri= "sqlite:///{path}".format(path=path)
+    db = SQLDatabase.from_uri(uri)
+    print(db.dialect)
+    print(db.get_usable_table_names())
+    return db
+
+
+def get_tools(args, llm):
+    db = get_database(args.path)
+    toolkit = SQLDatabaseToolkit(db=db, llm=llm)
+    tools = toolkit.get_tools()
+    # print("SQL toolkit tools: ", tools)
+    sql_tools = []
+    for tool in tools:
+        if isinstance(tool, InfoSQLDatabaseTool):
+            pass
+        else:
+            sql_tools.append(tool)
+    # print("SQL tools: ", sql_tools)
+    final_tools = sql_tools+[get_table_info]
+    print("Tools for agent to use:\n", final_tools)
+    return final_tools
+
+
+if __name__ == "__main__":
+    print(get_table_info("schools, satscores, frpm"))
+    # print("====================================")
+    # print(get_table_info("satscores"))
+    # print("====================================")
+    # print(get_table_info("frpm"))
