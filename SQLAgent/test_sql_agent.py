@@ -6,7 +6,7 @@ import argparse
 import pandas as pd
 import os
 from tools import get_tools
-from prompt import SQL_PREFIX
+from prompt import SQL_PREFIX, V2_SYSM
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -37,7 +37,7 @@ def run_agent(agent_executor, query):
         for s in agent_executor.stream(
             {"messages": [HumanMessage(content=query)]},
             stream_mode="values",
-            config={"recursion_limit": 10},
+            config={"recursion_limit": 20},
         ):
             message = s["messages"][-1]
             message.pretty_print()
@@ -55,12 +55,19 @@ if __name__ == "__main__":
     
     llm = ChatOpenAI(model=args.model, temperature=0)
     tools = get_tools(args, llm)
-    system_message = SystemMessage(content=SQL_PREFIX)
+    print("Tools: ", tools)
+    system_message = SystemMessage(content=V2_SYSM)
     agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
     df = pd.read_csv(args.query_file)
     # df = df.head(1)
-   
+    
+    # query= [
+    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+    #     "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+    # ]
+    # df = pd.DataFrame({"Query": query})
+
     results = []
     traces = []
     for _, row in df.iterrows():
@@ -70,7 +77,7 @@ if __name__ == "__main__":
         print("******Answer: ", res)
         results.append(res)
         traces.append(trace)
-        print("******Trace: ", trace)
+        # print("******Trace: ", trace)
         print("-"*50)
     
     df["agent_answer"] = results
@@ -80,7 +87,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v1_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v3_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 

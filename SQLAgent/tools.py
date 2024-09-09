@@ -1,12 +1,12 @@
 import pandas as pd
 import os
 from typing import Type
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.tools import BaseTool
+# from langchain_core.pydantic_v1 import BaseModel, Field
+# from langchain_core.tools import BaseTool
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_core.tools import tool
-from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool, ListSQLDatabaseTool, QuerySQLCheckerTool, InfoSQLDatabaseTool
+# from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool, ListSQLDatabaseTool, QuerySQLCheckerTool, InfoSQLDatabaseTool
 
 DESCRIPTION_FOLDER="/localdisk/minminho/TAG-Bench/dev_folder/dev_databases/california_schools/database_description/"
 
@@ -42,22 +42,17 @@ def get_table_info(table_names:str)->str:
         output += f"Table: {table_name}\n----------\n{des}\n\n"
     return output
 
-
-class _TableInfoToolInput(BaseModel):
-    table_name: str = Field(
-        ...,
-        description=(
-            "the table name for which to return the column names and descriptions. "
-        ),
-    )
-
-class TableInfoTool(BaseTool):
-    name: str = "sql_table_info"
-    description: str = "Get the names and descriptions of all the columns in a table."
-    args_schema: Type[BaseModel] = _TableInfoToolInput
-
-    def _run(self, table_name: str) -> str:
-        return get_table_info(table_name)
+@tool
+def get_column_description(table_name:str, column_name:str)->str:
+    '''Get the description of a column in a table. Very useful for understanding the categorical values of a column.
+    Args:
+        table_name: The name of the table.
+        column_name: The name of the column.
+    '''
+    filename = os.path.join(DESCRIPTION_FOLDER, f"{table_name}.csv")
+    df = pd.read_csv(filename)
+    df = df[df["original_column_name"]==column_name]
+    return get_column_descriptions(df)
 
 
 def get_database(path):
@@ -67,26 +62,35 @@ def get_database(path):
     print(db.get_usable_table_names())
     return db
 
+@tool
+def search_web(query: str)->str:
+    '''Search the web for the answer to a question.'''
+    from langchain_community.tools import DuckDuckGoSearchRun
+    search = DuckDuckGoSearchRun()
+    return search.invoke(query)
 
 def get_tools(args, llm):
     db = get_database(args.path)
     toolkit = SQLDatabaseToolkit(db=db, llm=llm)
     tools = toolkit.get_tools()
     # print("SQL toolkit tools: ", tools)
-    sql_tools = []
-    for tool in tools:
-        if isinstance(tool, InfoSQLDatabaseTool):
-            pass
-        else:
-            sql_tools.append(tool)
-    # print("SQL tools: ", sql_tools)
-    final_tools = sql_tools+[get_table_info]
-    print("Tools for agent to use:\n", final_tools)
-    return final_tools
+    # sql_tools = []
+    # for tool in tools:
+    #     if isinstance(tool, InfoSQLDatabaseTool):
+    #         pass
+    #     else:
+    #         sql_tools.append(tool)
+    # # print("SQL tools: ", sql_tools)
+    # final_tools = sql_tools+[get_table_info]
+    # print("Tools for agent to use:\n", final_tools)
+    # return final_tools
+    tools = [get_column_description, search_web]+tools
+    return tools
 
 
-if __name__ == "__main__":
-    print(get_table_info("schools, satscores, frpm"))
+# if __name__ == "__main__":
+#     # print(get_table_info("schools, satscores, frpm"))
+#     print(get_column_description("schools", "Virtual"))
     # print("====================================")
     # print(get_table_info("satscores"))
     # print("====================================")
