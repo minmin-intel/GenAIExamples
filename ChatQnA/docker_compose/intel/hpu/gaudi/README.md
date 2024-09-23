@@ -2,30 +2,89 @@
 
 This document outlines the deployment process for a ChatQnA application utilizing the [GenAIComps](https://github.com/opea-project/GenAIComps.git) microservice pipeline on Intel Gaudi server. The steps include Docker image creation, container deployment via Docker Compose, and service execution to integrate microservices such as embedding, retriever, rerank, and llm. We will publish the Docker images to Docker Hub, it will simplify the deployment process for this service.
 
+Quick Start:
+
+1. Set up the environment variables.
+2. Run Docker Compose.
+3. Consume the ChatQnA Service.
+
+## Quick Start: 1.Setup Environment Variable
+
+To set up environment variables for deploying ChatQnA services, follow these steps:
+
+1. Set the required environment variables:
+
+   ```bash
+   # Example: host_ip="192.168.1.1"
+   export host_ip="External_Public_IP"
+   # Example: no_proxy="localhost, 127.0.0.1, 192.168.1.1"
+   export no_proxy="Your_No_Proxy"
+   export HUGGINGFACEHUB_API_TOKEN="Your_Huggingface_API_Token"
+   ```
+
+2. If you are in a proxy environment, also set the proxy-related environment variables:
+
+   ```bash
+   export http_proxy="Your_HTTP_Proxy"
+   export https_proxy="Your_HTTPs_Proxy"
+   ```
+
+3. Set up other environment variables:
+
+   ```bash
+   source ./set_env.sh
+   ```
+
+## Quick Start: 2.Run Docker Compose
+
+```bash
+docker compose up -d
+```
+
+It will automatically download the docker image on `docker hub`:
+
+```bash
+docker pull opea/chatqna:latest
+docker pull opea/chatqna-ui:latest
+```
+
+In following cases, you could build docker image from source by yourself.
+
+- Failed to download the docker image.
+
+- If you want to use a specific version of Docker image.
+
+Please refer to 'Build Docker Images' in below.
+
+## QuickStart: 3.Consume the ChatQnA Service
+
+```bash
+curl http://${host_ip}:8888/v1/chatqna \
+    -H "Content-Type: application/json" \
+    -d '{
+        "messages": "What is the revenue of Nike in 2023?"
+    }'
+```
+
 ## 🚀 Build Docker Images
 
 First of all, you need to build Docker Images locally. This step can be ignored after the Docker images published to Docker hub.
 
-### 1. Source Code install GenAIComps
+### 1. Build Embedding Image
 
 ```bash
 git clone https://github.com/opea-project/GenAIComps.git
 cd GenAIComps
-```
-
-### 2. Build Embedding Image
-
-```bash
 docker build --no-cache -t opea/embedding-tei:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/embeddings/tei/langchain/Dockerfile .
 ```
 
-### 3. Build Retriever Image
+### 2. Build Retriever Image
 
 ```bash
 docker build --no-cache -t opea/retriever-redis:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/retrievers/redis/langchain/Dockerfile .
 ```
 
-### 4. Build Rerank Image
+### 3. Build Rerank Image
 
 > Skip for ChatQnA without Rerank pipeline
 
@@ -33,17 +92,17 @@ docker build --no-cache -t opea/retriever-redis:latest --build-arg https_proxy=$
 docker build --no-cache -t opea/reranking-tei:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/reranks/tei/Dockerfile .
 ```
 
-### 5. Build LLM Image
+### 4. Build LLM Image
 
 You can use different LLM serving solutions, choose one of following four options.
 
-#### 5.1 Use TGI
+#### 4.1 Use TGI
 
 ```bash
 docker build --no-cache -t opea/llm-tgi:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/llms/text-generation/tgi/Dockerfile .
 ```
 
-#### 5.2 Use VLLM
+#### 4.2 Use VLLM
 
 Build vllm docker.
 
@@ -57,7 +116,7 @@ Build microservice docker.
 docker build --no-cache -t opea/llm-vllm:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/llms/text-generation/vllm/langchain/Dockerfile .
 ```
 
-#### 5.3 Use VLLM-on-Ray
+#### 4.3 Use VLLM-on-Ray
 
 Build vllm-on-ray docker.
 
@@ -71,24 +130,21 @@ Build microservice docker.
 docker build --no-cache -t opea/llm-vllm-ray:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/llms/text-generation/vllm/ray/Dockerfile .
 ```
 
-### 6. Build Dataprep Image
+### 5. Build Dataprep Image
 
 ```bash
 docker build --no-cache -t opea/dataprep-redis:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/dataprep/redis/langchain/Dockerfile .
 ```
 
-### 7. Build TEI Gaudi Image
+### 6. Build Guardrails Docker Image (Optional)
 
-Since a TEI Gaudi Docker image hasn't been published, we'll need to build it from the [tei-gaudi](https://github.com/huggingface/tei-gaudi) repository.
+To fortify AI initiatives in production, Guardrails microservice can secure model inputs and outputs, building Trustworthy, Safe, and Secure LLM-based Applications.
 
 ```bash
-git clone https://github.com/huggingface/tei-gaudi
-cd tei-gaudi/
-docker build --no-cache -f Dockerfile-hpu -t opea/tei-gaudi:latest .
-cd ../..
+docker build -t opea/guardrails-tgi:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/guardrails/llama_guard/langchain/Dockerfile .
 ```
 
-### 8. Build MegaService Docker Image
+### 7. Build MegaService Docker Image
 
 1. MegaService with Rerank
 
@@ -98,7 +154,6 @@ cd ../..
    git clone https://github.com/opea-project/GenAIExamples.git
    cd GenAIExamples/ChatQnA/docker
    docker build --no-cache -t opea/chatqna:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f Dockerfile .
-   cd ../../..
    ```
 
 2. MegaService with Guardrails
@@ -109,7 +164,6 @@ cd ../..
    git clone https://github.com/opea-project/GenAIExamples.git
    cd GenAIExamples/ChatQnA/
    docker build --no-cache -t opea/chatqna-guardrails:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f Dockerfile.guardrails .
-   cd ../../..
    ```
 
 3. MegaService without Rerank
@@ -120,20 +174,18 @@ cd ../..
    git clone https://github.com/opea-project/GenAIExamples.git
    cd GenAIExamples/ChatQnA/docker
    docker build --no-cache -t opea/chatqna-without-rerank:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f Dockerfile.without_rerank .
-   cd ../../..
    ```
 
-### 9. Build UI Docker Image
+### 8. Build UI Docker Image
 
 Construct the frontend Docker image using the command below:
 
 ```bash
 cd GenAIExamples/ChatQnA/ui
 docker build --no-cache -t opea/chatqna-ui:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f ./docker/Dockerfile .
-cd ../../../..
 ```
 
-### 10. Build Conversational React UI Docker Image (Optional)
+### 9. Build Conversational React UI Docker Image (Optional)
 
 Build frontend Docker image that enables Conversational experience with ChatQnA megaservice via below command:
 
@@ -142,17 +194,13 @@ Build frontend Docker image that enables Conversational experience with ChatQnA 
 ```bash
 cd GenAIExamples/ChatQnA/ui
 docker build --no-cache -t opea/chatqna-conversation-ui:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f ./docker/Dockerfile.react .
-cd ../../../..
 ```
 
-### 11. Build Guardrails Docker Image (Optional)
-
-To fortify AI initiatives in production, Guardrails microservice can secure model inputs and outputs, building Trustworthy, Safe, and Secure LLM-based Applications.
+### 10. Build Nginx Docker Image
 
 ```bash
 cd GenAIComps
-docker build -t opea/guardrails-tgi:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/guardrails/llama_guard/langchain/Dockerfile .
-cd ../../..
+docker build -t opea/nginx:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/nginx/Dockerfile .
 ```
 
 Then run the command `docker images`, you will have the following 8 Docker Images:
@@ -161,10 +209,10 @@ Then run the command `docker images`, you will have the following 8 Docker Image
 - `opea/retriever-redis:latest`
 - `opea/reranking-tei:latest`
 - `opea/llm-tgi:latest` or `opea/llm-vllm:latest` or `opea/llm-vllm-ray:latest`
-- `opea/tei-gaudi:latest`
 - `opea/dataprep-redis:latest`
 - `opea/chatqna:latest` or `opea/chatqna-guardrails:latest` or `opea/chatqna-without-rerank:latest`
 - `opea/chatqna-ui:latest`
+- `opea/nginx:latest`
 
 If Conversation React UI is built, you will find one more image:
 
@@ -188,7 +236,7 @@ By default, the embedding, reranking and LLM models are set to a default value a
 
 Change the `xxx_MODEL_ID` below for your needs.
 
-For customers with proxy issues, the models from [ModelScope](https://www.modelscope.cn/models) are also supported in ChatQnA with TGI serving. ModelScope models are supported in two ways for TGI:
+For users in China who are unable to download models directly from Huggingface, you can use [ModelScope](https://www.modelscope.cn/models) or a Huggingface mirror to download models. TGI can load the models either online or offline as described below:
 
 1. Online
 
@@ -196,7 +244,7 @@ For customers with proxy issues, the models from [ModelScope](https://www.models
    export HF_TOKEN=${your_hf_token}
    export HF_ENDPOINT="https://hf-mirror.com"
    model_name="Intel/neural-chat-7b-v3-3"
-   docker run -p 8008:80 -v ./data:/data --name tgi-service -e HF_ENDPOINT=$HF_ENDPOINT -e http_proxy=$http_proxy -e https_proxy=$https_proxy --shm-size 1g ghcr.io/huggingface/text-generation-inference:2.1.0 --model-id $model_name
+   docker run -p 8008:80 -v ./data:/data --name tgi-service -e HF_ENDPOINT=$HF_ENDPOINT -e http_proxy=$http_proxy -e https_proxy=$https_proxy --runtime=habana -e HABANA_VISIBLE_DEVICES=all -e OMPI_MCA_btl_vader_single_copy_mechanism=none -e HUGGING_FACE_HUB_TOKEN=$HF_TOKEN -e ENABLE_HPU_GRAPH=true -e LIMIT_HPU_GRAPH=true -e USE_FLASH_ATTENTION=true -e FLASH_ATTENTION_RECOMPUTE=true --cap-add=sys_nice --ipc=host ghcr.io/huggingface/tgi-gaudi:2.0.5 --model-id $model_name --max-input-tokens 1024 --max-total-tokens 2048
    ```
 
 2. Offline
@@ -210,56 +258,35 @@ For customers with proxy issues, the models from [ModelScope](https://www.models
      ```bash
      export HF_TOKEN=${your_hf_token}
      export model_path="/path/to/model"
-     docker run -p 8008:80 -v $model_path:/data --name tgi_service --shm-size 1g ghcr.io/huggingface/text-generation-inference:2.1.0 --model-id /data
+     docker run -p 8008:80 -v $model_path:/data --name tgi_service --runtime=habana -e HABANA_VISIBLE_DEVICES=all -e OMPI_MCA_btl_vader_single_copy_mechanism=none -e HUGGING_FACE_HUB_TOKEN=$HF_TOKEN -e ENABLE_HPU_GRAPH=true -e LIMIT_HPU_GRAPH=true -e USE_FLASH_ATTENTION=true -e FLASH_ATTENTION_RECOMPUTE=true --cap-add=sys_nice --ipc=host ghcr.io/huggingface/tgi-gaudi:2.0.5 --model-id /data --max-input-tokens 1024 --max-total-tokens 2048
      ```
 
 ### Setup Environment Variables
 
-Since the `compose.yaml` will consume some environment variables, you need to setup them in advance as below.
+1. Set the required environment variables:
 
-```bash
-export no_proxy=${your_no_proxy}
-export http_proxy=${your_http_proxy}
-export https_proxy=${your_http_proxy}
-export EMBEDDING_MODEL_ID="BAAI/bge-base-en-v1.5"
-export RERANK_MODEL_ID="BAAI/bge-reranker-base"
-export LLM_MODEL_ID="Intel/neural-chat-7b-v3-3"
-export LLM_MODEL_ID_NAME="neural-chat-7b-v3-3"
-export TEI_EMBEDDING_ENDPOINT="http://${host_ip}:8090"
-export TEI_RERANKING_ENDPOINT="http://${host_ip}:8808"
-export TGI_LLM_ENDPOINT="http://${host_ip}:8005"
-export vLLM_LLM_ENDPOINT="http://${host_ip}:8007"
-export vLLM_RAY_LLM_ENDPOINT="http://${host_ip}:8006"
-export LLM_SERVICE_PORT=9000
-export REDIS_URL="redis://${host_ip}:6379"
-export INDEX_NAME="rag-redis"
-export HUGGINGFACEHUB_API_TOKEN=${your_hf_api_token}
-export MEGA_SERVICE_HOST_IP=${host_ip}
-export EMBEDDING_SERVICE_HOST_IP=${host_ip}
-export RETRIEVER_SERVICE_HOST_IP=${host_ip}
-export RERANK_SERVICE_HOST_IP=${host_ip}
-export LLM_SERVICE_HOST_IP=${host_ip}
-export BACKEND_SERVICE_ENDPOINT="http://${host_ip}:8888/v1/chatqna"
-export DATAPREP_SERVICE_ENDPOINT="http://${host_ip}:6007/v1/dataprep"
-export DATAPREP_GET_FILE_ENDPOINT="http://${host_ip}:6007/v1/dataprep/get_file"
-export DATAPREP_DELETE_FILE_ENDPOINT="http://${host_ip}:6007/v1/dataprep/delete_file"
+   ```bash
+   # Example: host_ip="192.168.1.1"
+   export host_ip="External_Public_IP"
+   # Example: no_proxy="localhost, 127.0.0.1, 192.168.1.1"
+   export no_proxy="Your_No_Proxy"
+   export HUGGINGFACEHUB_API_TOKEN="Your_Huggingface_API_Token"
+   # Example: NGINX_PORT=80
+   export NGINX_PORT=${your_nginx_port}
+   ```
 
-export llm_service_devices=all
-export tei_embedding_devices=all
-```
+2. If you are in a proxy environment, also set the proxy-related environment variables:
 
-To specify the device ids, "llm_service_devices" and "tei_embedding_devices"` can be set as "0,1,2,3" alike. More info in [gaudi docs](https://docs.habana.ai/en/latest/Orchestration/Multiple_Tenants_on_HPU/Multiple_Dockers_each_with_Single_Workload.html).
+   ```bash
+   export http_proxy="Your_HTTP_Proxy"
+   export https_proxy="Your_HTTPs_Proxy"
+   ```
 
-If guardrails microservice is enabled in the pipeline, the below environment variables are necessary to be set.
+3. Set up other environment variables:
 
-```bash
-export GURADRAILS_MODEL_ID="meta-llama/Meta-Llama-Guard-2-8B"
-export SAFETY_GUARD_MODEL_ID="meta-llama/Meta-Llama-Guard-2-8B"
-export SAFETY_GUARD_ENDPOINT="http://${host_ip}:8088"
-export GUARDRAIL_SERVICE_HOST_IP=${host_ip}
-```
-
-Note: Please replace `host_ip` with your external IP address, do **NOT** use localhost.
+   ```bash
+   source ./set_env.sh
+   ```
 
 ### Start all the services Docker Containers
 
@@ -406,88 +433,119 @@ For validation details, please refer to [how-to-validate_service](./how_to_valid
 7. LLM Microservice
 
    ```bash
-   curl http://${host_ip}:9000/v1/chat/completions \
+   # TGI service
+   curl http://${host_ip}:9000/v1/chat/completions\
      -X POST \
-     -d '{"query":"What is Deep Learning?","max_new_tokens":17,"top_k":10,"top_p":0.95,"typical_p":0.95,"temperature":0.01,"repetition_penalty":1.03,"streaming":true}' \
+     -d '{"query":"What is Deep Learning?","max_tokens":17,"top_k":10,"top_p":0.95,"typical_p":0.95,"temperature":0.01,"repetition_penalty":1.03,"streaming":true}' \
      -H 'Content-Type: application/json'
    ```
+
+   For parameters in TGI mode, please refer to [HuggingFace InferenceClient API](https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.text_generation) (except we rename "max_new_tokens" to "max_tokens".)
+
+   ```bash
+   # vLLM Service
+   curl http://${host_ip}:9000/v1/chat/completions \
+    -X POST \
+    -d '{"query":"What is Deep Learning?","max_tokens":17,"top_p":1,"temperature":0.7,"frequency_penalty":0,"presence_penalty":0, "streaming":false}' \
+    -H 'Content-Type: application/json'
+   ```
+
+   For parameters in vLLM Mode, can refer to [LangChain VLLMOpenAI API](https://api.python.langchain.com/en/latest/llms/langchain_community.llms.vllm.VLLMOpenAI.html)
+
+   ```bash
+   # vLLM-on-Ray Service
+   curl http://${host_ip}:9000/v1/chat/completions \
+     -X POST \
+     -d '{"query":"What is Deep Learning?","max_tokens":17,"presence_penalty":1.03","streaming":false}' \
+     -H 'Content-Type: application/json'
+   ```
+
+   For parameters in vLLM-on-Ray mode, can refer to [LangChain ChatOpenAI API](https://python.langchain.com/v0.2/api_reference/openai/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html)
 
 8. MegaService
 
    ```bash
    curl http://${host_ip}:8888/v1/chatqna -H "Content-Type: application/json" -d '{
-        "messages": "What is the revenue of Nike in 2023?"
-        }'
+         "messages": "What is the revenue of Nike in 2023?"
+         }'
    ```
 
-9. Dataprep Microservice（Optional）
-
-   If you want to update the default knowledge base, you can use the following commands:
-
-   Update Knowledge Base via Local File Upload:
+9. Nginx Service
 
    ```bash
-   curl -X POST "http://${host_ip}:6007/v1/dataprep" \
-        -H "Content-Type: multipart/form-data" \
-        -F "files=@./nke-10k-2023.pdf"
+   curl http://${host_ip}:${NGINX_PORT}/v1/chatqna \
+       -H "Content-Type: application/json" \
+       -d '{"messages": "What is the revenue of Nike in 2023?"}'
    ```
 
-   This command updates a knowledge base by uploading a local file for processing. Update the file path according to your environment.
+10. Dataprep Microservice（Optional）
 
-   Add Knowledge Base via HTTP Links:
+If you want to update the default knowledge base, you can use the following commands:
 
-   ```bash
-   curl -X POST "http://${host_ip}:6007/v1/dataprep" \
-        -H "Content-Type: multipart/form-data" \
-        -F 'link_list=["https://opea.dev"]'
-   ```
+Update Knowledge Base via Local File Upload:
 
-   This command updates a knowledge base by submitting a list of HTTP links for processing.
+```bash
+curl -X POST "http://${host_ip}:6007/v1/dataprep" \
+     -H "Content-Type: multipart/form-data" \
+     -F "files=@./nke-10k-2023.pdf"
+```
 
-   Also, you are able to get the file/link list that you uploaded:
+This command updates a knowledge base by uploading a local file for processing. Update the file path according to your environment.
 
-   ```bash
-   curl -X POST "http://${host_ip}:6007/v1/dataprep/get_file" \
-        -H "Content-Type: application/json"
-   ```
+Add Knowledge Base via HTTP Links:
 
-   Then you will get the response JSON like this. Notice that the returned `name`/`id` of the uploaded link is `https://xxx.txt`.
+```bash
+curl -X POST "http://${host_ip}:6007/v1/dataprep" \
+     -H "Content-Type: multipart/form-data" \
+     -F 'link_list=["https://opea.dev"]'
+```
 
-   ```json
-   [
-     {
-       "name": "nke-10k-2023.pdf",
-       "id": "nke-10k-2023.pdf",
-       "type": "File",
-       "parent": ""
-     },
-     {
-       "name": "https://opea.dev.txt",
-       "id": "https://opea.dev.txt",
-       "type": "File",
-       "parent": ""
-     }
-   ]
-   ```
+This command updates a knowledge base by submitting a list of HTTP links for processing.
 
-   To delete the file/link you uploaded:
+Also, you are able to get the file/link list that you uploaded:
 
-   ```bash
-   # delete link
-   curl -X POST "http://${host_ip}:6007/v1/dataprep/delete_file" \
-        -d '{"file_path": "https://opea.dev.txt"}' \
-        -H "Content-Type: application/json"
+```bash
+curl -X POST "http://${host_ip}:6007/v1/dataprep/get_file" \
+     -H "Content-Type: application/json"
+```
 
-   # delete file
-   curl -X POST "http://${host_ip}:6007/v1/dataprep/delete_file" \
-        -d '{"file_path": "nke-10k-2023.pdf"}' \
-        -H "Content-Type: application/json"
+Then you will get the response JSON like this. Notice that the returned `name`/`id` of the uploaded link is `https://xxx.txt`.
 
-   # delete all uploaded files and links
-   curl -X POST "http://${host_ip}:6007/v1/dataprep/delete_file" \
-        -d '{"file_path": "all"}' \
-        -H "Content-Type: application/json"
-   ```
+```json
+[
+  {
+    "name": "nke-10k-2023.pdf",
+    "id": "nke-10k-2023.pdf",
+    "type": "File",
+    "parent": ""
+  },
+  {
+    "name": "https://opea.dev.txt",
+    "id": "https://opea.dev.txt",
+    "type": "File",
+    "parent": ""
+  }
+]
+```
+
+To delete the file/link you uploaded:
+
+```bash
+# delete link
+curl -X POST "http://${host_ip}:6007/v1/dataprep/delete_file" \
+     -d '{"file_path": "https://opea.dev.txt"}' \
+     -H "Content-Type: application/json"
+
+# delete file
+curl -X POST "http://${host_ip}:6007/v1/dataprep/delete_file" \
+     -d '{"file_path": "nke-10k-2023.pdf"}' \
+     -H "Content-Type: application/json"
+
+# delete all uploaded files and links
+curl -X POST "http://${host_ip}:6007/v1/dataprep/delete_file" \
+     -d '{"file_path": "all"}' \
+     -H "Content-Type: application/json"
+```
 
 10. Guardrails (Optional)
 
@@ -500,6 +558,8 @@ curl http://${host_ip}:9090/v1/guardrails\
 
 ## 🚀 Launch the UI
 
+### Launch with origin port
+
 To access the frontend, open the following URL in your browser: http://{host_ip}:5173. By default, the UI runs on port 5173 internally. If you prefer to use a different host port to access the frontend, you can modify the port mapping in the `compose.yaml` file as shown below:
 
 ```yaml
@@ -510,11 +570,9 @@ To access the frontend, open the following URL in your browser: http://{host_ip}
       - "80:5173"
 ```
 
-![project-screenshot](../../../../assets/img/chat_ui_init.png)
+### Launch with Nginx
 
-Here is an example of running ChatQnA:
-
-![project-screenshot](../../../../assets/img/chat_ui_response.png)
+If you want to launch the UI using Nginx, open this URL: `http://${host_ip}:${NGINX_PORT}` in your browser to access the frontend.
 
 ## 🚀 Launch the Conversational UI (Optional)
 
@@ -544,6 +602,12 @@ Once the services are up, open the following URL in your browser: http://{host_i
     ports:
       - "80:80"
 ```
+
+![project-screenshot](../../../../assets/img/chat_ui_init.png)
+
+Here is an example of running ChatQnA:
+
+![project-screenshot](../../../../assets/img/chat_ui_response.png)
 
 Here is an example of running ChatQnA with Conversational UI (React):
 

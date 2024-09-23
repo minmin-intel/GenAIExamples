@@ -3,19 +3,23 @@
 
 services:
   tgi-service:
-    image: ghcr.io/huggingface/tgi-gaudi:2.0.1
+    image: ghcr.io/huggingface/tgi-gaudi:2.0.5
     container_name: tgi-gaudi-server
     ports:
       - "8008:80"
     environment:
+      no_proxy: ${no_proxy}
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
-      TGI_LLM_ENDPOINT: ${TGI_LLM_ENDPOINT}
-      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
       HF_HUB_DISABLE_PROGRESS_BARS: 1
       HF_HUB_ENABLE_HF_TRANSFER: 0
       HABANA_VISIBLE_DEVICES: all
       OMPI_MCA_btl_vader_single_copy_mechanism: none
+      ENABLE_HPU_GRAPH: true
+      LIMIT_HPU_GRAPH: true
+      USE_FLASH_ATTENTION: true
+      FLASH_ATTENTION_RECOMPUTE: true
     runtime: habana
     cap_add:
       - SYS_NICE
@@ -32,10 +36,13 @@ services:
       - "9000:9000"
     ipc: host
     environment:
+      no_proxy: ${no_proxy}
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
       TGI_LLM_ENDPOINT: ${TGI_LLM_ENDPOINT}
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HF_HUB_DISABLE_PROGRESS_BARS: 1
+      HF_HUB_ENABLE_HF_TRANSFER: 0
     restart: unless-stopped
   translation-gaudi-backend-server:
     image: ${REGISTRY:-opea}/translation:${TAG:-latest}
@@ -46,6 +53,7 @@ services:
     ports:
       - "8888:8888"
     environment:
+      - no_proxy=${no_proxy}
       - https_proxy=${https_proxy}
       - http_proxy=${http_proxy}
       - MEGA_SERVICE_HOST_IP=${MEGA_SERVICE_HOST_IP}
@@ -60,9 +68,29 @@ services:
     ports:
       - "5173:5173"
     environment:
+     - no_proxy=${no_proxy}
       - https_proxy=${https_proxy}
       - http_proxy=${http_proxy}
       - BASE_URL=${BACKEND_SERVICE_ENDPOINT}
+    ipc: host
+    restart: always
+  translation-gaudi-nginx-server:
+    image: ${REGISTRY:-opea}/nginx:${TAG:-latest}
+    container_name: translation-gaudi-nginx-server
+    depends_on:
+      - translation-gaudi-backend-server
+      - translation-gaudi-ui-server
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    environment:
+      - no_proxy=${no_proxy}
+      - https_proxy=${https_proxy}
+      - http_proxy=${http_proxy}
+      - FRONTEND_SERVICE_IP=${FRONTEND_SERVICE_IP}
+      - FRONTEND_SERVICE_PORT=${FRONTEND_SERVICE_PORT}
+      - BACKEND_SERVICE_NAME=${BACKEND_SERVICE_NAME}
+      - BACKEND_SERVICE_IP=${BACKEND_SERVICE_IP}
+      - BACKEND_SERVICE_PORT=${BACKEND_SERVICE_PORT}
     ipc: host
     restart: always
 
