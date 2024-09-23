@@ -14,12 +14,6 @@ This example showcases a hierarchical multi-agent system for question-answering 
 3. Hierarchical agent can further improve performance.
    Expert worker agents, such as retrieval agent, knowledge graph agent, SQL agent, etc., can provide high-quality output for different aspects of a complex query, and the supervisor agent can aggregate the information together to provide a comprehensive answer.
 
-### Roadmap
-
-- v0.9: Worker agent uses open-source websearch tool (duckduckgo), agents use OpenAI GPT-4o-mini as llm backend.
-- v1.0: Worker agent uses OPEA retrieval megaservice as tool.
-- v1.0 or later: agents use open-source llm backend.
-- v1.1 or later: add safeguards
 
 ## Getting started
 
@@ -39,14 +33,22 @@ This example showcases a hierarchical multi-agent system for question-answering 
    docker build -t opea/agent-langchain:latest --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy -f comps/agent/langchain/Dockerfile .
    ```
 
-2. Launch tool services </br>
+2. Launch retrieval tool </br>
+   We will use the [DocIndexRetriever](https://github.com/opea-project/GenAIExamples/tree/main/DocIndexRetriever) example in OPEA GenAIExamples repo as the retrieval tool. It is a mega-service that consists of a query embedding microservice, a retriever microservice and a reranker microservice. Use the command below to launch the retrieval tool.
+   ```
+   cd $WORKDIR/GenAIExamples/AgentQnA/retrieval_tool/
+   bash launch_retrieval_tool.sh
+   ```
+   You can index your data into the vector database by using the `dataprep` microservice. We provide an example scipt in the `retrieval_tool` folder, but you can write your own script. For more details, refer to the [dataprep](https://github.com/opea-project/GenAIComps/tree/main/comps/dataprep) component in OPEA GenAIComps repo.
+
+3. Launch other tool services </br>
    In this example, we will use some of the mock APIs provided in the Meta CRAG KDD Challenge to demonstrate the benefits of gaining additional context from mock knowledge graphs.
 
    ```
    docker run -d -p=8080:8000 docker.io/aicrowd/kdd-cup-24-crag-mock-api:v0
    ```
 
-3. Set up environment for this example </br>
+4. Set up environment for this example </br>
    First, clone this repo
 
    ```
@@ -89,7 +91,7 @@ Second, validate worker agent:
 
 ```
 curl http://${ip_address}:9095/v1/chat/completions -X POST -H "Content-Type: application/json" -d '{
-     "query": "Most recent album by Taylor Swift"
+     "query": "Tell me about Michael Jackson song thriller"
     }'
 ```
 
@@ -97,7 +99,7 @@ Third, validate supervisor agent:
 
 ```
 curl http://${ip_address}:9090/v1/chat/completions -X POST -H "Content-Type: application/json" -d '{
-     "query": "Most recent album by Taylor Swift"
+     "query": "Tell me about Michael Jackson song thriller"
     }'
 ```
 

@@ -59,8 +59,6 @@ def main():
     files = split_jsonl_into_txts(os.path.join(args.filedir, args.filename))
     file_list = write_docs_to_disk(files, args.filedir)
 
-    print(file_list)
-
     for file in tqdm.tqdm(file_list):
         print("Indexing file: ", file)
         files = [("files", (f, open(f, "rb"))) for f in [file]]
