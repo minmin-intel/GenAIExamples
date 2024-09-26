@@ -64,7 +64,7 @@ def get_database(path):
 
 @tool
 def search_web(query: str)->str:
-    '''Search the web for the answer to a question.'''
+    '''Search the web for information not contained in databases.'''
     from langchain_community.tools import DuckDuckGoSearchRun
     search = DuckDuckGoSearchRun()
     return search.invoke(query)

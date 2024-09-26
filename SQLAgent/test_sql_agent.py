@@ -6,7 +6,7 @@ import argparse
 import pandas as pd
 import os
 from tools import get_tools
-from prompt import SQL_PREFIX, V2_SYSM
+from prompt import SQL_PREFIX, V2_SYSM, V3_SYSM, V4_SYSM
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -14,6 +14,7 @@ def get_args():
     parser.add_argument("--query_file", type=str, required=True)
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--multiagent", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -32,12 +33,12 @@ def get_trace(messages):
     return trace
 
 
-def run_agent(agent_executor, query):
+def run_agent(agent_executor, query, recursion_limit=10):
     try:
         for s in agent_executor.stream(
             {"messages": [HumanMessage(content=query)]},
             stream_mode="values",
-            config={"recursion_limit": 20},
+            config={"recursion_limit": recursion_limit},
         ):
             message = s["messages"][-1]
             message.pretty_print()
@@ -50,13 +51,37 @@ def run_agent(agent_executor, query):
         return f"Error: {e}", None
 
 
-if __name__ == "__main__":
-    args = get_args()
-    
+from langchain_core.tools import tool
+@tool
+def query_sql_database(query:str)->str:
+    '''Query the SQL database with natural language and get answer in natural language.\
+    The database has data of California schools, SAT scores and Free and Reduced Price Meals (FRPM) data.\
+    The database does NOT have geographical, census or gender data.\
+    More likely to get answer with simple queries.'''
+    print("@@@@@@ Running SQL agent to get the answer....")
     llm = ChatOpenAI(model=args.model, temperature=0)
     tools = get_tools(args, llm)
     print("Tools: ", tools)
     system_message = SystemMessage(content=V2_SYSM)
+    agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
+    res, _ = run_agent(agent_executor, query, recursion_limit=15)
+    return res
+
+
+
+if __name__ == "__main__":
+    args = get_args()
+    
+    llm = ChatOpenAI(model=args.model, temperature=0)
+    if args.multiagent:
+        from tools import search_web
+        tools = [query_sql_database, search_web]
+        system_message = SystemMessage(content=V4_SYSM)
+    else:
+        tools = get_tools(args, llm)
+        system_message = SystemMessage(content=V3_SYSM)
+
+    print("Tools: ", tools)
     agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
     df = pd.read_csv(args.query_file)
@@ -64,7 +89,9 @@ if __name__ == "__main__":
     
     # query= [
     #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-    #     "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+    #     # "How many test takers are there at the school/s in a county with population over 2 million?",
+    #     "What are the two most common first names among the female school administrators?",
     # ]
     # df = pd.DataFrame({"Query": query})
 
@@ -73,7 +100,7 @@ if __name__ == "__main__":
     for _, row in df.iterrows():
         query = row["Query"]
         print("******Query: ", query)
-        res, trace = run_agent(agent_executor, query)
+        res, trace = run_agent(agent_executor, query, recursion_limit=10)
         print("******Answer: ", res)
         results.append(res)
         traces.append(trace)
@@ -87,7 +114,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v3_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v4_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
