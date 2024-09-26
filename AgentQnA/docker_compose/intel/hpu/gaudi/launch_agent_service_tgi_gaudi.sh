@@ -13,7 +13,7 @@ ls $HF_CACHE_DIR
 export HUGGINGFACEHUB_API_TOKEN=${HUGGINGFACEHUB_API_TOKEN}
 export LLM_MODEL_ID="meta-llama/Meta-Llama-3.1-70B-Instruct"
 export NUM_SHARDS=4
-export LLM_ENDPOINT_URL="http://${ip_address}:8085"
+export LLM_ENDPOINT_URL="http://localhost:2080"
 export temperature=0.01
 export max_new_tokens=512
 
@@ -28,16 +28,16 @@ export CRAG_SERVER=http://${ip_address}:8080
 
 docker compose -f compose.yaml up -d
 
-sleep 5s
-echo "Waiting tgi gaudi ready"
-n=0
-until [[ "$n" -ge 100 ]] || [[ $ready == true ]]; do
-    docker logs tgi-server &> tgi-gaudi-service.log
-    n=$((n+1))
-    if grep -q Connected tgi-gaudi-service.log; then
-        break
-    fi
-    sleep 5s
-done
-sleep 5s
-echo "Service started successfully"
+# sleep 5s
+# echo "Waiting tgi gaudi ready"
+# n=0
+# until [[ "$n" -ge 100 ]] || [[ $ready == true ]]; do
+#     docker logs tgi-server &> tgi-gaudi-service.log
+#     n=$((n+1))
+#     if grep -q Connected tgi-gaudi-service.log; then
+#         break
+#     fi
+#     sleep 5s
+# done
+# sleep 5s
+# echo "Service started successfully"

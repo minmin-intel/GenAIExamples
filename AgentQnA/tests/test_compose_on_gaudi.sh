@@ -48,9 +48,9 @@ stop_retrieval_tool
 
 cd $WORKPATH/tests
 
-echo "=================== #1 Building docker images===================="
-bash 1_build_images.sh
-echo "=================== #1 Building docker images completed===================="
+# echo "=================== #1 Building docker images===================="
+# bash 1_build_images.sh
+# echo "=================== #1 Building docker images completed===================="
 
 echo "=================== #2 Start retrieval tool===================="
 bash 2_start_retrieval_tool.sh
