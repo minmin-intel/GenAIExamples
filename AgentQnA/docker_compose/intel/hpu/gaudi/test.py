@@ -8,7 +8,7 @@ def search_knowledge_base(query: str) -> str:
     # use worker agent (DocGrader) to search the knowledge base
     url = os.environ.get("WORKER_AGENT_URL")
     print(url)
-    proxies = {"http": ""}
+    proxies = {"http": "", "https": ""}
     payload = {
         "query": query,
     }

@@ -11,7 +11,7 @@ services:
     ports:
       - "9095:9095"
     ipc: host
-    # network_mode: host
+    network_mode: host
     environment:
       ip_address: ${ip_address}
       strategy: rag_agent_llama
@@ -26,12 +26,12 @@ services:
       tools: /home/user/tools/worker_agent_tools.yaml
       require_human_feedback: false
       RETRIEVAL_TOOL_URL: ${RETRIEVAL_TOOL_URL}
-      # no_proxy: ${no_proxy}
-      # http_proxy: ${http_proxy}
-      # https_proxy: ${https_proxy}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
-      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2}
-      LANGCHAIN_PROJECT: "opea-worker-agent-service"
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      # LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
+      # LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2}
+      # LANGCHAIN_PROJECT: "opea-worker-agent-service"
       port: 9095
 
 
