@@ -15,13 +15,28 @@ def search_knowledge_base(query: str) -> str:
         "text": query,
     }
     response = requests.post(url, json=payload, proxies=proxies)
-    print(response)
-    docs = response.json()["documents"]
-    context = ""
-    for i, doc in enumerate(docs):
-        if i == 0:
-            context = doc
-        else:
-            context += "\n" + doc
-    print(context)
-    return context
+    print(response.json())
+    if "documents" in response.json():
+        docs = response.json()["documents"]
+        context = ""
+        for i, doc in enumerate(docs):
+            if i == 0:
+                context = doc
+            else:
+                context += "\n" + doc
+        # print(context)
+        return context
+    elif "text" in response.json():
+        return response.json()["text"]
+    elif "reranked_docs" in response.json():
+        docs = response.json()["reranked_docs"]
+        context = ""
+        for i, doc in enumerate(docs):
+            if i == 0:
+                context = doc["text"]
+            else:
+                context += "\n" + doc["text"]
+        # print(context)
+        return context
+    else:
+        return "Error parsing response from the knowledge base."

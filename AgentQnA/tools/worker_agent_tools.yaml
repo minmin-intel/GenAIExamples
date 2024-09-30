@@ -9,3 +9,6 @@ search_knowledge_base:
       type: str
       description: query
   return_output: retrieved_data
+
+# duckduckgo_search:
+#   callable_api: ddg-search
