@@ -6,7 +6,7 @@ import argparse
 import pandas as pd
 import os
 from tools import get_tools
-from prompt import SQL_PREFIX, V2_SYSM, V3_SYSM, V4_SYSM
+from prompt import SQL_PREFIX, V2_SYSM, V3_SYSM, V4_SYSM, V5_SYSM
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -79,28 +79,28 @@ if __name__ == "__main__":
         system_message = SystemMessage(content=V4_SYSM)
     else:
         tools = get_tools(args, llm)
-        system_message = SystemMessage(content=V3_SYSM)
+        system_message = SystemMessage(content=V5_SYSM)
 
     print("Tools: ", tools)
     agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
     df = pd.read_csv(args.query_file)
-    # df = df.head(1)
     
     # query= [
     #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
     #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-    #     # "How many test takers are there at the school/s in a county with population over 2 million?",
-    #     "What are the two most common first names among the female school administrators?",
+    #     "How many test takers are there at the school/s in a county with population over 2 million?",
+    #     # "What are the two most common first names among the female school administrators?",
     # ]
     # df = pd.DataFrame({"Query": query})
 
+    recursion_limit = 24
     results = []
     traces = []
     for _, row in df.iterrows():
         query = row["Query"]
         print("******Query: ", query)
-        res, trace = run_agent(agent_executor, query, recursion_limit=10)
+        res, trace = run_agent(agent_executor, query, recursion_limit=recursion_limit)
         print("******Answer: ", res)
         results.append(res)
         traces.append(trace)
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v4_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v5_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 

@@ -44,7 +44,7 @@ def get_table_info(table_names:str)->str:
 
 @tool
 def get_column_description(table_name:str, column_name:str)->str:
-    '''Get the description of a column in a table. Very useful for understanding the categorical values of a column.
+    '''Useful for understanding the categorical values of a column.
     Args:
         table_name: The name of the table.
         column_name: The name of the column.
