@@ -6,7 +6,7 @@ import argparse
 import pandas as pd
 import os
 from tools import get_tools
-from prompt import SQL_PREFIX, V2_SYSM, V3_SYSM, V4_SYSM, V5_SYSM
+from prompt import *
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -15,6 +15,7 @@ def get_args():
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--multiagent", action="store_true")
+    parser.add_argument("--critic", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -33,22 +34,23 @@ def get_trace(messages):
     return trace
 
 
-def run_agent(agent_executor, query, recursion_limit=10):
-    try:
-        for s in agent_executor.stream(
-            {"messages": [HumanMessage(content=query)]},
-            stream_mode="values",
-            config={"recursion_limit": recursion_limit},
-        ):
-            message = s["messages"][-1]
-            message.pretty_print()
+def run_agent(agent_executor, input, recursion_limit=10):
+    # try:
 
-        trace = get_trace(s["messages"])
-        return message.content, trace
+    for s in agent_executor.stream(
+        input,
+        stream_mode="values",
+        config={"recursion_limit": recursion_limit},
+    ):
+        message = s["messages"][-1]
+        message.pretty_print()
+
+    trace = get_trace(s["messages"])
+    return message.content, trace
     
-    except Exception as e:
-        print(f"Error: {e}")
-        return f"Error: {e}", None
+    # except Exception as e:
+    #     print(f"Error: {e}")
+    #     return f"Error: {e}", None
 
 
 from langchain_core.tools import tool
@@ -77,14 +79,24 @@ if __name__ == "__main__":
         from tools import search_web
         tools = [query_sql_database, search_web]
         system_message = SystemMessage(content=V4_SYSM)
+    elif args.critic:
+        tools = get_tools(args, llm)
+        system_message = SystemMessage(content=V7_SYSM)
+
     else:
         tools = get_tools(args, llm)
-        system_message = SystemMessage(content=V5_SYSM)
+        system_message = SystemMessage(content=V6_SYSM)
 
     print("Tools: ", tools)
-    agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    df = pd.read_csv(args.query_file)
+    if args.critic:
+        from agent import AgentWithCritic
+        agent = AgentWithCritic(args, tools)
+        agent_executor = agent.app
+    else:
+        agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
+
+    # df = pd.read_csv(args.query_file)
     
     query= [
         "What is the telephone number for the school with the lowest average score in reading in Southern California?",
@@ -94,14 +106,18 @@ if __name__ == "__main__":
     ]
     df = pd.DataFrame({"Query": query})
 
-    recursion_limit = 24
+    recursion_limit = 25
     results = []
     traces = []
     for _, row in df.iterrows():
         query = row["Query"]
-        print("******Query: ", query)
-        res, trace = run_agent(agent_executor, query, recursion_limit=recursion_limit)
-        print("******Answer: ", res)
+        if args.critic:
+            input = agent.prepare_initial_state(query)
+        else:
+            input = {"messages": [HumanMessage(content=query)]}
+        print("******Input:\n", input)
+        res, trace = run_agent(agent_executor, input, recursion_limit=recursion_limit)
+        print("******Answer:\n", res)
         results.append(res)
         traces.append(trace)
         # print("******Trace: ", trace)
@@ -114,7 +130,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v5_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v7_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 

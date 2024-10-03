@@ -10,6 +10,7 @@ python3 test_sql_agent.py \
 --path $DBPATH \
 --query_file $QUERYFILE \
 --output $OUTFOLDER \
---model $MODEL 
+--model $MODEL \
+--critic
 
 # --multiagent

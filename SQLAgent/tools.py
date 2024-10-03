@@ -8,7 +8,8 @@ from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_core.tools import tool
 # from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool, ListSQLDatabaseTool, QuerySQLCheckerTool, InfoSQLDatabaseTool
 
-DESCRIPTION_FOLDER="/localdisk/minminho/TAG-Bench/dev_folder/dev_databases/california_schools/database_description/"
+working_dir = os.getenv("WORKDIR")
+DESCRIPTION_FOLDER=os.path.join(working_dir, "TAG-Bench/dev_folder/dev_databases/california_schools/database_description/")
 
 def get_column_descriptions(df):
     output = ""
