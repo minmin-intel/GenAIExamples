@@ -1,6 +1,6 @@
-DBPATH=/localdisk/minminho/TAG-Bench/dev_folder/dev_databases/california_schools/california_schools.sqlite
-QUERYFILE=/localdisk/minminho/TAG-Bench/query_by_db/query_california_schools.csv
-OUTFOLDER=/localdisk/minminho/sql_agent_output
+DBPATH=$WORKDIR/TAG-Bench/dev_folder/dev_databases/california_schools/california_schools.sqlite
+QUERYFILE=$WORKDIR/TAG-Bench/query_by_db/query_california_schools.csv
+OUTFOLDER=$WORKDIR/sql_agent_output
 
 
 

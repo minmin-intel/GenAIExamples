@@ -86,13 +86,13 @@ if __name__ == "__main__":
 
     df = pd.read_csv(args.query_file)
     
-    # query= [
-    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-    #     "How many test takers are there at the school/s in a county with population over 2 million?",
-    #     # "What are the two most common first names among the female school administrators?",
-    # ]
-    # df = pd.DataFrame({"Query": query})
+    query= [
+        "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+        # "How many test takers are there at the school/s in a county with population over 2 million?",
+        # "What are the two most common first names among the female school administrators?",
+    ]
+    df = pd.DataFrame({"Query": query})
 
     recursion_limit = 24
     results = []
