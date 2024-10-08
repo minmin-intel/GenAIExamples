@@ -99,7 +99,8 @@ Give concise, factual and relevant answers.
 
 #### Critic
 V7_SYSM = """\
-You are an agent designed to answer questions about schools in California. You can use the tools below.
+You are an agent designed to answer questions about schools in California. You can use the tools below. 
+You may get feedback from a critic. But you must arrive at an answer on your own. 
 Read the user question carefully to understand the user intent. Then think carefully, decompose the questions into simpler tasks, and make a plan to solve the problem step by step. Then carry out your plan step by step.
  
 You may need to aggregate information from two or more tables in the database. You may need to post process the data to get the final answer.
@@ -116,7 +117,9 @@ When querying the database, remember the following:
 """
 
 CRITIC_PROMPT = """\
-Look carefully through the steps taken by the agent. Suggest checks or corrections that the agent should do.
+Look carefully through the steps taken by the agent. Check if the agent made any mistakes or missed anything. Suggest checks or corrections that the agent should do.
+Some common mistakes of SQL queries include: overlooking nulls that may impact the min values, specifying wrong categorical values for a column, missing conditions, not aggregating values properly.
+Some other mistakes include: querying info not in the database, misunderstood the user query.
 
 USER QUERY: {input}
 ============
@@ -129,4 +132,11 @@ Give your suggestions in the following JSON format:
 If you think the agent answer is correct, output the answer in the following JSON format:
 {{"answer":"the correct answer here"}}
 
+"""
+
+GENERATOR_PROMPT = """\
+Given the user query and the agent's answer, write a concise, relevant and helpful answer to be given to the user.
+USER QUERY: {input}
+AGENT ANSWER: {agent_answer}
+YOUR ANSWER:
 """

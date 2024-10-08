@@ -106,7 +106,7 @@ if __name__ == "__main__":
     ]
     df = pd.DataFrame({"Query": query})
 
-    recursion_limit = 25
+    recursion_limit = 30
     results = []
     traces = []
     for _, row in df.iterrows():

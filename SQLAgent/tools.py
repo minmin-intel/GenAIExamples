@@ -45,7 +45,7 @@ def get_table_info(table_names:str)->str:
 
 @tool
 def get_column_description(table_name:str, column_name:str)->str:
-    '''Useful for understanding the categorical values of a column.
+    '''Get the descriptions of the categorical values of a column.
     Args:
         table_name: The name of the table.
         column_name: The name of the column.
@@ -85,7 +85,7 @@ def get_tools(args, llm):
     # final_tools = sql_tools+[get_table_info]
     # print("Tools for agent to use:\n", final_tools)
     # return final_tools
-    tools = [get_column_description, search_web]+tools
+    tools = tools + [get_column_description, search_web]
     return tools
 
 

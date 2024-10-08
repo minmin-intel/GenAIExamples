@@ -63,15 +63,12 @@ def assemble_history(messages):
                 query_history += f"Agent Output: {m.content}\n"
         # elif isinstance(m, ToolMessage):
         #     query_history += f"Tool Output: {m.content}\n\n"
+        elif isinstance(m, HumanMessage):
+            query_history += f"Critic feedback: {m.content}\n"
     return query_history
 
 
 class CriticNode:
-    """Do planning and reasoning and generate tool calls.
-
-    A workaround for open-source llm served by TGI-gaudi.
-    """
-
     def __init__(self, args):
         from prompt import CRITIC_PROMPT
         llm = ChatOpenAI(model=args.model,temperature=0)
@@ -102,13 +99,39 @@ class CriticNode:
             print(f"Exception occurred in Critic node: {e}")
             return {"messages": [agent_answer], "critic_decision": "end","num_critic": state["num_critic"] + 1}
 
-    
+
+class GeneratorNode:
+    def __init__(self, args):
+        from prompt import GENERATOR_PROMPT
+        llm = ChatOpenAI(model=args.model,temperature=0)
+        prompt = PromptTemplate(
+            template=GENERATOR_PROMPT,
+            input_variables=["input", "agent_answer"],
+        )
+        self.chain = prompt | llm
+        
+
+    def __call__(self, state):
+        messages = state["messages"]
+        query = messages[0].content
+        print("@@@@@ User Query:\n", query)
+        agent_answer = messages[-1].content
+        print("@@@@@ Agent Answer:\n", agent_answer)
+
+        response = self.chain.invoke({"input": query, "agent_answer": agent_answer})
+        print("@@@@@ Generator:\n", response)
+        
+        return {"messages": [response]}
+
+
+
 
 class AgentWithCritic:
     def __init__(self, args, tools):
         agent = AgentNode(args, tools)
         tool_node = ToolNode(tools)
         critic = CriticNode(args)
+        generator = GeneratorNode(args)
 
         workflow = StateGraph(AgentState)
 
@@ -116,6 +139,7 @@ class AgentWithCritic:
         workflow.add_node("agent", agent)
         workflow.add_node("tools", tool_node)
         workflow.add_node("critic", critic)
+        workflow.add_node("generator", generator)
 
         workflow.set_entry_point("agent")
 
@@ -137,13 +161,15 @@ class AgentWithCritic:
                 "continue": "tools",
                 # Otherwise we go to critic.
                 "should_critic": "critic",
-                "end": END,
+                "end": "generator",
             },
         )
 
         # We now add a normal edge from `tools` to `agent`.
         # This means that after `tools` is called, `agent` node is called next.
         workflow.add_edge("tools", "agent")
+
+        workflow.add_edge("generator", END)
 
         workflow.add_conditional_edges(
             "critic",
