@@ -61,8 +61,13 @@ def assemble_history(messages):
             else:
                 # did not make tool calls
                 query_history += f"Agent Output: {m.content}\n"
-        # elif isinstance(m, ToolMessage):
-        #     query_history += f"Tool Output: {m.content}\n\n"
+        elif isinstance(m, ToolMessage):
+            if m.name == "sql_db_query" and len(m.content)<200: # to limit the input tokens to critic
+                query_history += f"Tool Output: {m.content}\n"
+            # if m.name == "sql_db_query":
+            #     query_history += f"Tool Output: {m.content}\n"
+            else:
+                pass
         elif isinstance(m, HumanMessage):
             query_history += f"Critic feedback: {m.content}\n"
     return query_history
@@ -207,7 +212,7 @@ class AgentWithCritic:
         if last_message.tool_calls:
             return "continue"
         else:
-            if state["num_critic"] >= 2 or state["critic_decision"] == "end":
+            if (state["num_critic"] >= 2) or (state["critic_decision"] == "end"):
                 return "end"
             else:
                 return "should_critic"

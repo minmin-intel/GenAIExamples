@@ -63,12 +63,41 @@ def get_database(path):
     print(db.get_usable_table_names())
     return db
 
+# @tool
+# def search_web(query: str)->str:
+#     '''Search the web for information not contained in databases.'''
+#     from langchain_community.tools import DuckDuckGoSearchRun
+#     search = DuckDuckGoSearchRun()
+#     return search.invoke(query)
+
 @tool
 def search_web(query: str)->str:
     '''Search the web for information not contained in databases.'''
-    from langchain_community.tools import DuckDuckGoSearchRun
-    search = DuckDuckGoSearchRun()
-    return search.invoke(query)
+    from tavily import TavilyClient
+    import os
+    TAVILYKEY=os.getenv("TAVILY_API_KEY")
+    tavily = TavilyClient(api_key=TAVILYKEY)
+    search_params = {
+        "search_depth":"advanced",
+        "max_results":3,
+        "include_answer":True
+    }
+
+    ret_text = ""
+    
+    try:
+        print('Query:\n', query)
+        res = tavily.search(query=query, **search_params)
+        answer = res['answer']
+        print('Answer:\n', answer)
+        # query = answer
+        ret_text = answer
+    except Exception as e:    
+        ret_text = "Exception occurred during search: {}".format(str(e))
+        print(str(e))
+
+    return ret_text
+
 
 def get_tools(args, llm):
     db = get_database(args.path)

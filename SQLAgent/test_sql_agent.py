@@ -35,22 +35,22 @@ def get_trace(messages):
 
 
 def run_agent(agent_executor, input, recursion_limit=10):
-    # try:
+    try:
 
-    for s in agent_executor.stream(
-        input,
-        stream_mode="values",
-        config={"recursion_limit": recursion_limit},
-    ):
-        message = s["messages"][-1]
-        message.pretty_print()
+        for s in agent_executor.stream(
+            input,
+            stream_mode="values",
+            config={"recursion_limit": recursion_limit},
+        ):
+            message = s["messages"][-1]
+            message.pretty_print()
 
-    trace = get_trace(s["messages"])
-    return message.content, trace
+        trace = get_trace(s["messages"])
+        return message.content, trace
     
-    # except Exception as e:
-    #     print(f"Error: {e}")
-    #     return f"Error: {e}", None
+    except Exception as e:
+        print(f"Error: {e}")
+        return f"Error: {e}", None
 
 
 from langchain_core.tools import tool
@@ -96,15 +96,16 @@ if __name__ == "__main__":
     else:
         agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    # df = pd.read_csv(args.query_file)
+    df = pd.read_csv(args.query_file)
     
-    query= [
-        "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-        # "How many test takers are there at the school/s in a county with population over 2 million?",
-        # "What are the two most common first names among the female school administrators?",
-    ]
-    df = pd.DataFrame({"Query": query})
+    # query= [
+    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+    #     # "How many test takers are there at the school/s in a county with population over 2 million?",
+    #     # "What are the two most common first names among the female school administrators?",
+    #     "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
+    # ]
+    # df = pd.DataFrame({"Query": query})
 
     recursion_limit = 30
     results = []

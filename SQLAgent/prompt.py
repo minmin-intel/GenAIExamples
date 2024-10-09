@@ -118,8 +118,7 @@ When querying the database, remember the following:
 
 CRITIC_PROMPT = """\
 Look carefully through the steps taken by the agent. Check if the agent made any mistakes or missed anything. Suggest checks or corrections that the agent should do.
-Some common mistakes of SQL queries include: overlooking nulls that may impact the min values, specifying wrong categorical values for a column, missing conditions, not aggregating values properly.
-Some other mistakes include: querying info not in the database, misunderstood the user query.
+Some common mistakes of SQL queries include: overlooking nulls that may impact the min values, specifying wrong categorical values for a column, missing conditions, not aggregating values for cities or a counties.
 
 USER QUERY: {input}
 ============
