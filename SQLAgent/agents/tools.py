@@ -6,7 +6,7 @@ from typing import Type
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_core.tools import tool
-# from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool, ListSQLDatabaseTool, QuerySQLCheckerTool, InfoSQLDatabaseTool
+from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool, ListSQLDatabaseTool, QuerySQLCheckerTool, InfoSQLDatabaseTool
 
 working_dir = os.getenv("WORKDIR")
 DESCRIPTION_FOLDER=os.path.join(working_dir, "TAG-Bench/dev_folder/dev_databases/california_schools/database_description/")
@@ -116,6 +116,27 @@ def get_tools(args, llm):
     # return final_tools
     tools = tools + [get_column_description, search_web]
     return tools
+
+
+
+# def query_fixer(query):
+
+
+def get_tools_sql_agent(args):
+    working_dir = os.getenv("WORKDIR")
+    db_name = args.db_name
+    DBPATH=f"{working_dir}/TAG-Bench/dev_folder/dev_databases/{db_name}/{db_name}.sqlite"
+    uri= "sqlite:///{path}".format(path=DBPATH)
+    db = SQLDatabase.from_uri(uri)
+    query_sql_database_tool_description = (
+            "Input to this tool is a detailed and correct SQL query, output is a "
+            "result from the database. If the query is not correct, an error message "
+            "will be returned. If an error is returned, rewrite the query, check the "
+            "query, and try again. "
+        )
+    db_query_tool = QuerySQLDataBaseTool(db=db, description=query_sql_database_tool_description)
+    return [db_query_tool, search_web]
+
 
 
 # if __name__ == "__main__":

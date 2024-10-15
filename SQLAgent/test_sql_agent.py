@@ -5,8 +5,8 @@ from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
 import argparse
 import pandas as pd
 import os
-from tools import get_tools
-from prompt import *
+from agents.tools import get_tools
+from agents.prompt import *
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -16,6 +16,8 @@ def get_args():
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--multiagent", action="store_true")
     parser.add_argument("--critic", action="store_true")
+    parser.add_argument("--sql_agent", action="store_true")
+    parser.add_argument("--db_name", type=str, default="california_schools")
     args = parser.parse_args()
     return args
 
@@ -82,7 +84,9 @@ if __name__ == "__main__":
     elif args.critic:
         tools = get_tools(args, llm)
         system_message = SystemMessage(content=V7_SYSM)
-
+    elif args.sql_agent:
+        from agents.tools import get_tools_sql_agent
+        tools = get_tools_sql_agent(args)
     else:
         tools = get_tools(args, llm)
         system_message = SystemMessage(content=V6_SYSM)
@@ -90,29 +94,34 @@ if __name__ == "__main__":
     print("Tools: ", tools)
 
     if args.critic:
-        from agent import AgentWithCritic
+        from agents.critic_agent import AgentWithCritic
         agent = AgentWithCritic(args, tools)
+        agent_executor = agent.app
+    elif args.sql_agent:
+        from agents.sql_agent import SQLAgent
+        agent = SQLAgent(args, tools)
         agent_executor = agent.app
     else:
         agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    df = pd.read_csv(args.query_file)
+    # df = pd.read_csv(args.query_file)
     
-    # query= [
-    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-    #     # "How many test takers are there at the school/s in a county with population over 2 million?",
-    #     # "What are the two most common first names among the female school administrators?",
-    #     "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
-    # ]
-    # df = pd.DataFrame({"Query": query})
+    query= [
+        # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+        # "How many test takers are there at the school/s in a county with population over 2 million?",
+        # "What are the two most common first names among the female school administrators?",
+        # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
+        "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
+        ]
+    df = pd.DataFrame({"Query": query})
 
-    recursion_limit = 30
+    recursion_limit = 15
     results = []
     traces = []
     for _, row in df.iterrows():
         query = row["Query"]
-        if args.critic:
+        if args.critic or args.sql_agent:
             input = agent.prepare_initial_state(query)
         else:
             input = {"messages": [HumanMessage(content=query)]}
@@ -131,7 +140,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v7_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v8_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
