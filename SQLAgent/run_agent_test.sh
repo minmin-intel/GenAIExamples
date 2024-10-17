@@ -11,6 +11,6 @@ python3 test_sql_agent.py \
 --query_file $QUERYFILE \
 --output $OUTFOLDER \
 --model $MODEL \
---sql_agent_fixer
+--hier_sql_agent
 
 # --multiagent

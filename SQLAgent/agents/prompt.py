@@ -300,7 +300,7 @@ Now take a deep breath and think step by step to solve the problem.
 """
 
 QUERYFIXER_PROMPT_v2 = """\
-You are an SQL database expert tasked with correcting a SQL query. 
+You are an SQL database expert tasked with reviewing a SQL query. 
 **Procedure:**
 1. Review Database Schema:
 - Examine the table creation statements to understand the database structure.
@@ -313,9 +313,7 @@ errors, incorrect table references, incorrect column references, logical mistake
 3. Correct the Query if Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data
 according to the database schema and query requirements.
-**Output Format:**
-If your identified issues, then present your corrected query as a single line of SQL code, after Final Answer. Ensure there are
-no line breaks within the query. However, if the query is correct, you can provide the same query as the final answer.
+4. If the query is correct, provide the same query as the final answer.
 
 ======= Your task =======
 **************************
@@ -332,5 +330,5 @@ The SQL query executed was:
 The execution result:
 {RESULT}
 **************************
-Based on the question, table schema and the previous query, analyze the result and fix the query if needed. If the query is correct, provide the same query as the final answer.
+Based on the question, table schema and the previous query, analyze the result. Fix the query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer.
 """

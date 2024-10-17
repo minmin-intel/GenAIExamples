@@ -81,7 +81,7 @@ def query_database_with_sql_agent(query:str)->str:
     '''Use a SQL database agent to query the database. Query should be in natural language.'''
     print("@@@@@@ Running SQL agent to get the answer....")
     initial_state = sql_agent_fixer.prepare_initial_state(query)
-    res, _ = run_agent(sql_agent_fixer_executor, initial_state, recursion_limit=15)
+    res, _ = run_agent(sql_agent_fixer_executor, initial_state, recursion_limit=16)
     return res
 
 
@@ -109,12 +109,13 @@ if __name__ == "__main__":
         tools = get_tools_sql_agent(args)
     elif args.hier_sql_agent:
         from agents.tools import search_web
-        from agents.sql_agent import SQLAgent
+        from agents.sql_agent import SQLAgent, SQLAgentWithQueryFixer
         from agents.tools import get_tools_sql_agent
         db_query_tool = get_tools_sql_agent(args)[0]
         global sql_agent_fixer
         global sql_agent_fixer_executor
-        sql_agent_fixer = SQLAgent(args, [db_query_tool])
+        # sql_agent_fixer = SQLAgent(args, [db_query_tool])
+        sql_agent_fixer = SQLAgentWithQueryFixer(args, [db_query_tool])
         sql_agent_fixer_executor = sql_agent_fixer.app
         tools = [query_database_with_sql_agent, search_web]
         system_message = SystemMessage(content=V10_SYSM)
@@ -156,7 +157,8 @@ if __name__ == "__main__":
     # df = pd.read_csv(args.query_file)
     
     query= [
-        "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+        # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+        "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
         # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
         # "How many test takers are there at the school/s in a county with population over 2 million?",
         # "What are the two most common first names among the female school administrators?",
@@ -165,7 +167,7 @@ if __name__ == "__main__":
         ]
     df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
-    recursion_limit = 15
+    recursion_limit = 10
     results = []
     traces = []
     json_lines = []
