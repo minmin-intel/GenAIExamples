@@ -9,7 +9,7 @@ from langgraph.managed import IsLastStep
 from langgraph.prebuilt import ToolNode
 from langchain_openai import ChatOpenAI
 # from langgraph.checkpoint.memory import MemorySaver
-from .prompt import V8_SYSM, V9_SYSM, V11_SYSM
+from .prompt import *
 import json
 import os
 from .hint import generate_hints, generate_column_descriptions
@@ -49,7 +49,7 @@ class AgentNode:
         question = state["messages"][0].content
         table_schema, num_tables = get_table_schema(self.args.db_name)
         hints = generate_hints(question, self.column_embeddings,self.cols_descriptions)
-        sysm = V11_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
+        sysm = V12_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
         _system_message = SystemMessage(content=sysm)
         state_modifier_runnable = RunnableLambda(
             lambda state: [_system_message] + state["messages"],
@@ -68,7 +68,7 @@ class QueryFixerNode:
         from .prompt import QUERYFIXER_PROMPT
         llm = ChatOpenAI(model=args.model,temperature=0)
         prompt = PromptTemplate(
-            template=QUERYFIXER_PROMPT,
+            template=QUERYFIXER_PROMPT_v2,
             input_variables=["DATABASE_SCHEMA", "QUESTION", "HINT", "QUERY", "RESULT"],
         )
         self.chain = prompt | llm
@@ -80,6 +80,8 @@ class QueryFixerNode:
         result = messages[-1].content
         assert isinstance(messages[-2], AIMessage), "The second last message should be AI message with tool call"
         query = messages[-2].tool_calls[0]["args"]["query"]
+        print("@@@@ Executed SQL Query: ", query)
+        print("@@@@ Execution Result: ", result)
         return query, result
     
 

@@ -118,20 +118,19 @@ if __name__ == "__main__":
         sql_agent_fixer_executor = sql_agent_fixer.app
         tools = [query_database_with_sql_agent, search_web]
         system_message = SystemMessage(content=V10_SYSM)
-    # elif args.sql_agent_fixer:
-    #     from agents.tools import search_web
-    #     tools = [query_database_with_sql_agent, search_web]
-    #     system_message = SystemMessage(content=V10_SYSM)
-    #     from agents.sql_agent import SQLAgentWithQueryFixer
-    #     from agents.tools import get_tools_sql_agent
-    #     db_query_tool = get_tools_sql_agent(args)[0]
-    #     global sql_agent_fixer
-    #     global sql_agent_fixer_executor
-    #     sql_agent_fixer = SQLAgentWithQueryFixer(args, [db_query_tool])
-    #     sql_agent_fixer_executor = sql_agent_fixer.app
-        # from agents.tools import get_tools_sql_agent
-        # temp_tools = get_tools_sql_agent(args)
-        # tools = [temp_tools[0]] # only use the db_query_tool
+    elif args.sql_agent_fixer:
+        from agents.tools import search_web
+        from agents.sql_agent import SQLAgentWithQueryFixer
+        from agents.tools import get_tools_sql_agent
+        # db_query_tool = get_tools_sql_agent(args)[0]
+        # tools = [query_database_with_sql_agent, search_web]
+        # system_message = SystemMessage(content=V10_SYSM)
+        # global sql_agent_fixer
+        # global sql_agent_fixer_executor
+        # sql_agent_fixer = SQLAgentWithQueryFixer(args, [db_query_tool])
+        # sql_agent_fixer_executor = sql_agent_fixer.app
+        temp_tools = get_tools_sql_agent(args)
+        tools = [temp_tools[0]] # only use the db_query_tool
     else:
         tools = get_tools(args, llm)
         system_message = SystemMessage(content=V6_SYSM)
@@ -146,27 +145,27 @@ if __name__ == "__main__":
         from agents.sql_agent import SQLAgent
         agent = SQLAgent(args, tools)
         agent_executor = agent.app
-    # elif args.sql_agent_fixer:
-        # from agents.sql_agent import SQLAgentWithQueryFixer
-        # agent = SQLAgentWithQueryFixer(args, tools)
-        # agent_executor = agent.app
+    elif args.sql_agent_fixer:
+        from agents.sql_agent import SQLAgentWithQueryFixer
+        agent = SQLAgentWithQueryFixer(args, tools)
+        agent_executor = agent.app
     else:
         print(f"Creating agent with tools {tools} and sysm {system_message}....")
         agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    df = pd.read_csv(args.query_file)
+    # df = pd.read_csv(args.query_file)
     
-    # query= [
-    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-    #     "How many test takers are there at the school/s in a county with population over 2 million?",
-    #     # "What are the two most common first names among the female school administrators?",
-    #     # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
-    #     # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
-    #     ]
-    # df = pd.DataFrame({"Query": query})
+    query= [
+        "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+        # "How many test takers are there at the school/s in a county with population over 2 million?",
+        # "What are the two most common first names among the female school administrators?",
+        # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
+        # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
+        ]
+    df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
-    recursion_limit = 10
+    recursion_limit = 15
     results = []
     traces = []
     json_lines = []
