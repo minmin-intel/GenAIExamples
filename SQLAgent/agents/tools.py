@@ -118,10 +118,6 @@ def get_tools(args, llm):
     return tools
 
 
-
-# def query_fixer(query):
-
-
 def get_tools_sql_agent(args):
     working_dir = os.getenv("WORKDIR")
     db_name = args.db_name
