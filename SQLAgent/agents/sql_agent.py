@@ -83,13 +83,17 @@ class QueryFixerNode:
         messages = state["messages"]
         assert isinstance(messages[-1], ToolMessage), "The last message should be a tool message"
         result = messages[-1].content
-        assert isinstance(messages[-2], AIMessage), "The second last message should be AI message with tool call"
-        query = messages[-2].tool_calls[0]["args"]["query"]
+        id = messages[-1].tool_call_id
+        # assert isinstance(messages[-2], AIMessage), "The second last message should be AI message with tool call"
+        # query = messages[-2].tool_calls[0]["args"]["query"]
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                if msg.tool_calls[0]["id"] == id:
+                    query = msg.tool_calls[0]["args"]["query"]
+                    break
         print("@@@@ Executed SQL Query: ", query)
         print("@@@@ Execution Result: ", result)
         return query, result
-    
-
 
     def __call__(self, state):
         """
@@ -120,9 +124,14 @@ class QueryFixerNode:
                 "RESULT": result,
             }
         )
-        print("@@@@@ Query fixer output:\n", response.content)
+        # print("@@@@@ Query fixer output:\n", response.content)
         return {"messages": [response]}
 
+# from langchain_core.output_parsers import JsonOutputParser
+# from langchain_core.pydantic_v1 import BaseModel, Field
+
+# class hints(BaseModel):
+#     hints: str
 
 class HintNode:
     def __init__(self, args):
@@ -304,7 +313,7 @@ class SQLAgentWithHintAndQueryFixer:
     can only have one tool - sql_db_query tool
     """
     def __init__(self, args, tools):
-        agent = AgentNode(args, tools)
+        agent = AgentNodeWithHint(args, tools)
         hint_node = HintNode(args)
         query_fixer = QueryFixerNode(args)
         tool_node = ToolNode(tools)
@@ -389,10 +398,10 @@ if __name__ == "__main__":
     #     hint_col.append(res['hint'])
     #     print("=="*20)
     # df["hints"] = hint_col
-    # df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/query_california_schools_with_llm_hints_v2.csv", index=False)
+    # df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/query_california_schools_with_llm_hints_v3.csv", index=False)
     
-    # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
-    # query = "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?"
+    # # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
+    # # query = "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?"
     query = "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities."
     state = {
         "messages": [HumanMessage(content=query)],

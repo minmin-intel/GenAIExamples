@@ -345,13 +345,50 @@ Question: {QUESTION}
 Now think about which common-sense evidence are needed by someone outside the domain to write the correct SQL query to answer the question. Copy those evidence down including all details and common-sense evidence. Limit your pick to top 3.
 """
 
-HINT_TEMPLATE = """\
-You are an SQL expert specialized in {DOMAIN}. Your task is to identify the terms in the given question that requires domain knowledge to understand. Then write explanations for those terms using the hints below.
+HINT_TEMPLATE_v3 = """\
+You are a domain expert in {DOMAIN}. \
+Your task is to identify the terms in the given question that requires special domain knowledge to understand. \
+Then write domain-knowledge hints for those terms using the Hints below. \
+You should provide domain-knowledge hints that will help an SQL agent write correct SQL queries to answer the question. \
 **************************
 Hints:
 {HINT}
 **************************
 Question: {QUESTION}
 **************************
-Now think about which terms in the question require domain knowledge to explain to an entry-level SQL agent. Write down detailed hints for those terms. Write math formula with column names when you can. Limit your pick to top 3.
+Now read the hints carefully and think carefully. Pick up to 3 terms. Write clear and concise domain-knowledge hints for those terms that will help an SQL agent write correct SQL queries to answer the question. Write math formula with column names when you can. Do not write SQL query. Make sure there are no errors in your hints.
+"""
+
+HINT_TEMPLATE_v3 = """\
+You are a domain expert in {DOMAIN}. \
+Your task is to identify the terms in the given question that requires special domain knowledge to understand. \
+Then write domain-knowledge hints for those terms using the Hints below. \
+You should provide domain-knowledge hints that will help an SQL agent write correct SQL queries to answer the question. \
+**************************
+Hints:
+{HINT}
+**************************
+Question: {QUESTION}
+**************************
+Now read the hints carefully and think carefully. Pick up to 3 terms. Write clear and concise domain-knowledge hints for those terms that will help an SQL agent write correct SQL queries to answer the question. Write math formula with column names when you can. Do not write SQL query. Make sure there are no errors in your hints.
+"""
+
+
+HINT_TEMPLATE = """\
+You are a domain expert in {DOMAIN}. \
+Your task is to write special domain-knowledge hints for an SQL agent so that the agent can write correct queries to answer the user question.
+**Procedure:**
+1. Read the question carefully and identify the terms that require domain knowledge. Extract up to 3 terms.
+2. Read the column descriptions provided below. 
+3. Write the domain-knowledge hints for the terms you have extracted based on the column descriptions.
+- Make sure to write the column names and values correctly. 
+
+======= Your task =======
+**************************
+Column descriptions:
+{HINT}
+User Question:
+{QUESTION}
+**************************
+Based on the question and the column descriptions provided, write domain-knowledge hints for the terms that require special domain knowledge.
 """
