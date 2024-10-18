@@ -332,3 +332,26 @@ The execution result:
 **************************
 Based on the question, table schema and the previous query, analyze the result. Fix the query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer.
 """
+
+### hint selection node
+HINT_TEMPLATE_v1 = """\
+You are a domain expert in {DOMAIN}. Your task is to pick the most relevant common-sense evidence from the hints below for an SQL agent to solve the given question in {DOMAIN}.
+**************************
+Hints:
+{HINT}
+**************************
+Question: {QUESTION}
+**************************
+Now think about which common-sense evidence are needed by someone outside the domain to write the correct SQL query to answer the question. Copy those evidence down including all details and common-sense evidence. Limit your pick to top 3.
+"""
+
+HINT_TEMPLATE = """\
+You are an SQL expert specialized in {DOMAIN}. Your task is to identify the terms in the given question that requires domain knowledge to understand. Then write explanations for those terms using the hints below.
+**************************
+Hints:
+{HINT}
+**************************
+Question: {QUESTION}
+**************************
+Now think about which terms in the question require domain knowledge to explain to an entry-level SQL agent. Write down detailed hints for those terms. Write math formula with column names when you can. Limit your pick to top 3.
+"""

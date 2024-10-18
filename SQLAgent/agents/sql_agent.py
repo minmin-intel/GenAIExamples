@@ -1,4 +1,6 @@
 from typing import Annotated, Sequence, TypedDict
+import json
+import os
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
@@ -8,13 +10,16 @@ from langgraph.graph.message import add_messages
 from langgraph.managed import IsLastStep
 from langgraph.prebuilt import ToolNode
 from langchain_openai import ChatOpenAI
-# from langgraph.checkpoint.memory import MemorySaver
-from .prompt import *
-import json
-import os
-from .hint import generate_hints, generate_column_descriptions
-from sentence_transformers import SentenceTransformer
 from langchain_community.utilities import SQLDatabase
+# from langgraph.checkpoint.memory import MemorySaver
+# from sentence_transformers import SentenceTransformer
+try:
+    from .prompt import *
+    from .hint import generate_hints, generate_column_descriptions
+except:
+    from prompt import *
+    from hint import generate_hints, generate_column_descriptions
+
 
 def get_table_schema(db_name):
     working_dir = os.getenv("WORKDIR")
@@ -119,7 +124,57 @@ class QueryFixerNode:
         return {"messages": [response]}
 
 
+class HintNode:
+    def __init__(self, args):
+        llm = ChatOpenAI(model=args.model,temperature=0)
+        prompt = PromptTemplate(
+            template=HINT_TEMPLATE,
+            input_variables=["DOMAIN","QUESTION", "HINT"],
+        )
+        self.chain = prompt | llm
+        self.args = args
+
+
+    def __call__(self, state):
+        print("----------Call Hint Node----------")
+        question = state["messages"][0].content
+        all_hints = generate_hints(self.args.db_name)
+        response = self.chain.invoke(
+            {
+                "DOMAIN": str(self.args.db_name),
+                "QUESTION": question,
+                "HINT": all_hints,
+            }
+        )
+        selected_hints = response.content
+        print("@@@@@ Selected Hints: ", selected_hints)
+        return {"hint": selected_hints}
     
+
+class AgentNodeWithHint:
+    def __init__(self, args, tools):
+        self.llm = ChatOpenAI(model=args.model,temperature=0).bind_tools(tools)
+        self.args = args
+
+    def __call__(self, state):
+        print("----------Call Agent Node----------")
+        question = state["messages"][0].content
+        table_schema, num_tables = get_table_schema(self.args.db_name)
+        hints = state["hint"]
+        sysm = V12_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
+        _system_message = SystemMessage(content=sysm)
+        state_modifier_runnable = RunnableLambda(
+            lambda state: [_system_message] + state["messages"],
+            name="StateModifier",
+        )
+        # print(state_modifier_runnable.invoke(state))
+        chain = state_modifier_runnable | self.llm
+        response = chain.invoke(state)
+        # print("===========")
+        # print(response)
+        return {"messages": [response], "hint": hints}
+    
+
 class SQLAgent:
     def __init__(self, args, tools):
         agent = AgentNode(args, tools)
@@ -244,25 +299,118 @@ class SQLAgentWithQueryFixer:
 
 
 
+class SQLAgentWithHintAndQueryFixer:
+    """
+    can only have one tool - sql_db_query tool
+    """
+    def __init__(self, args, tools):
+        agent = AgentNode(args, tools)
+        hint_node = HintNode(args)
+        query_fixer = QueryFixerNode(args)
+        tool_node = ToolNode(tools)
+
+        workflow = StateGraph(AgentState)
+
+        # Define the nodes we will cycle between
+        workflow.add_node("hint_gen", hint_node)
+        workflow.add_node("agent", agent)
+        workflow.add_node("query_fixer", query_fixer)
+        workflow.add_node("tools", tool_node)
+
+        workflow.set_entry_point("hint_gen")
+        workflow.add_edge("hint_gen", "agent")
+
+        # We now add a conditional edge
+        workflow.add_conditional_edges(
+            # First, we define the start node. We use `agent`.
+            # This means these are the edges taken after the `agent` node is called.
+            "agent",
+            # Next, we pass in the function that will determine which node is called next.
+            self.should_continue,
+            # Finally we pass in a mapping.
+            # The keys are strings, and the values are other nodes.
+            # END is a special node marking that the graph should finish.
+            # What will happen is we will call `should_continue`, and then the output of that
+            # will be matched against the keys in this mapping.
+            # Based on which one it matches, that node will then be called.
+            {
+                # If `tools`, then we call the tool node.
+                "continue": "tools",
+                "end": END,
+            },
+        )
+
+        workflow.add_edge("tools", "query_fixer")
+        workflow.add_edge("query_fixer", "agent")
+
+        self.app = workflow.compile()
+        
+
+    # Define the function that determines whether to continue or not
+    def should_continue(self, state: AgentState):
+        messages = state["messages"]
+        last_message = messages[-1]
+        # If there is no function call, then we finish
+        if not last_message.tool_calls:
+            return "end"
+        # Otherwise if there is, we continue
+        else:
+            return "continue"
+    
+    def prepare_initial_state(self, query):
+        return {"messages": [HumanMessage(content=query)], "is_last_step": IsLastStep(False), "hint": ""}
+
 
 
 
 if __name__ == "__main__":
     import argparse
+    import pandas as pd
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="gpt-4o-mini-2024-07-18")
     parser.add_argument("--db_name", type=str, default="california_schools")
+    parser.add_argument("--query_file", type=str, default="query.json")
 
     args = parser.parse_args()
-    from tools import get_tools_sql_agent
 
-    # agent = AgentNode(args=args, tools=get_tools_sql_agent(args))
-    agent = SQLAgent(args=args, tools=get_tools_sql_agent(args))
+    hint_gen=HintNode(args)
 
-    query = "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?"
+    # df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
+    # hint_col = []
+    # for _, row in df.iterrows():
+    #     query = row["Query"]
+    #     print("Query: ", query)
+    #     state = {
+    #         "messages": [HumanMessage(content=query)],
+    #         "is_last_step": IsLastStep(False),
+    #         "hint": ""
+    #     }
+    #     res = hint_gen(state)
+    #     hint_col.append(res['hint'])
+    #     print("=="*20)
+    # df["hints"] = hint_col
+    # df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/query_california_schools_with_llm_hints_v2.csv", index=False)
+    
+    # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
+    # query = "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?"
+    query = "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities."
     state = {
         "messages": [HumanMessage(content=query)],
         "is_last_step": IsLastStep(False),
+        "hint": ""
     }
+    hint_gen(state)
 
-    initial_state = agent.prepare_initial_state(query)
+
+    # from tools import get_tools_sql_agent
+
+    # agent = AgentNode(args=args, tools=get_tools_sql_agent(args))
+    # agent = SQLAgent(args=args, tools=get_tools_sql_agent(args))
+
+    # query = "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?"
+    # state = {
+    #     "messages": [HumanMessage(content=query)],
+    #     "is_last_step": IsLastStep(False),
+    # }
+
+    # initial_state = agent.prepare_initial_state(query)

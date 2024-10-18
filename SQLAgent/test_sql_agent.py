@@ -154,18 +154,18 @@ if __name__ == "__main__":
         print(f"Creating agent with tools {tools} and sysm {system_message}....")
         agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    # df = pd.read_csv(args.query_file)
+    df = pd.read_csv(args.query_file)
     
-    query= [
-        # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-        "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
-        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-        # "How many test takers are there at the school/s in a county with population over 2 million?",
-        # "What are the two most common first names among the female school administrators?",
-        # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
-        # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
-        ]
-    df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
+    # query= [
+    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+    #     "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
+    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+    #     # "How many test takers are there at the school/s in a county with population over 2 million?",
+    #     # "What are the two most common first names among the female school administrators?",
+    #     # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
+    #     # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
+    #     ]
+    # df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
     recursion_limit = 10
     results = []
@@ -195,7 +195,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v8_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v9_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 

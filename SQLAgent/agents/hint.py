@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 import glob
-from sentence_transformers import SentenceTransformer, util
+# from sentence_transformers import SentenceTransformer, util
 
 
 
@@ -33,9 +33,11 @@ def generate_column_descriptions(db_name):
             #         description = str(row["column_description"])
             #     else:
             #         description= str(row["column_description"]) + " "+ str(row["value_description"])
-            description = str(row["value_description"])
+            if not pd.isnull(row["value_description"]):
+                description = str(row["value_description"])
+                # print(f"{col_name}: {description}")
 
-            if description is not None:    
+            # if description is not None:    
                 if description.lower() in col_name.lower():
                     print("Description {} is same as column name {}".format(description, col_name))
                     pass
@@ -59,7 +61,7 @@ def get_topk_cols(topk, cols_descriptions, similarities):
     return top_k_cols
 
 
-def generate_hints(query, column_embeddings, complete_descriptions, topk=5):
+def pick_hints(query, column_embeddings, complete_descriptions, topk=5):
     model = SentenceTransformer('BAAI/bge-base-en-v1.5')
 
     query_embedding = model.encode(query, convert_to_tensor=True)
@@ -72,24 +74,44 @@ def generate_hints(query, column_embeddings, complete_descriptions, topk=5):
         hint += (col +'\n')
     return hint
 
+def generate_hints(db_name):
+    complete_descriptions, cols_descriptions = generate_column_descriptions(db_name)
+
+    hints = ""
+    for col in complete_descriptions:
+        hints += (col +'\n')
+
+    # print("ALL HINTS: ", hints)
+    # print("================= END OF ALL HINTS ================")
+    return hints
+
+
 if __name__ == "__main__":
     db_name = "california_schools"
-    model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+    # model = SentenceTransformer('BAAI/bge-base-en-v1.5')
 
     complete_descriptions, cols_descriptions = generate_column_descriptions(db_name)
-    column_embeddings = model.encode(cols_descriptions)
-    # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
-    # hint = generate_hints(query, column_embeddings, cols_descriptions)
-    # print(hint)
-    working_dir = os.getenv("WORKDIR")
-    df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
-    hint_cols = []
-    for _, row in df.iterrows():
-        query = row["Query"]
-        hint = generate_hints(query, column_embeddings, complete_descriptions)
-        print("Query: ", query)
-        print("Hint: ", hint)
-        print("=="*20)
-        hint_cols.append(hint)
-    df["hints"] = hint_cols
-    df.to_csv(f"{working_dir}/sql_agent_output/query_california_schools_with_hints.csv", index=False)
+
+    hints = ""
+    for col in complete_descriptions:
+        hints += (col +'\n')
+    print(hints)
+
+    print(len(hints))
+
+    # column_embeddings = model.encode(cols_descriptions)
+    # # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
+    # # hint = generate_hints(query, column_embeddings, cols_descriptions)
+    # # print(hint)
+    # working_dir = os.getenv("WORKDIR")
+    # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
+    # hint_cols = []
+    # for _, row in df.iterrows():
+    #     query = row["Query"]
+    #     hint = generate_hints(query, column_embeddings, complete_descriptions)
+    #     print("Query: ", query)
+    #     print("Hint: ", hint)
+    #     print("=="*20)
+    #     hint_cols.append(hint)
+    # df["hints"] = hint_cols
+    # df.to_csv(f"{working_dir}/sql_agent_output/query_california_schools_with_hints.csv", index=False)
