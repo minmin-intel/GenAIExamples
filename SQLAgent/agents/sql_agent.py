@@ -73,7 +73,7 @@ class QueryFixerNode:
         from .prompt import QUERYFIXER_PROMPT
         llm = ChatOpenAI(model=args.model,temperature=0)
         prompt = PromptTemplate(
-            template=QUERYFIXER_PROMPT_v2,
+            template=QUERYFIXER_PROMPT_v3,
             input_variables=["DATABASE_SCHEMA", "QUESTION", "HINT", "QUERY", "RESULT"],
         )
         self.chain = prompt | llm
@@ -349,7 +349,15 @@ class SQLAgentWithHintAndQueryFixer:
             },
         )
 
-        workflow.add_edge("tools", "query_fixer")
+        # workflow.add_edge("tools", "query_fixer")
+        workflow.add_conditional_edges(
+            "tools",
+            self.should_go_to_query_fixer,
+            {
+                "true": "query_fixer",
+                "false": "agent"
+            },
+        )
         workflow.add_edge("query_fixer", "agent")
 
         self.app = workflow.compile()
@@ -365,6 +373,18 @@ class SQLAgentWithHintAndQueryFixer:
         # Otherwise if there is, we continue
         else:
             return "continue"
+        
+    def should_go_to_query_fixer(self, state: AgentState):
+        messages = state["messages"]
+        last_message = messages[-1]
+        assert isinstance(last_message, ToolMessage), "The last message should be a tool message"
+        print("@@@@ Called Tool: ", last_message.name)
+        if last_message.name == "sql_db_query":
+            print("@@@@ Going to Query Fixer")
+            return "true"
+        else:
+            print("@@@@ Going back to Agent")
+            return "false"
     
     def prepare_initial_state(self, query):
         return {"messages": [HumanMessage(content=query)], "is_last_step": IsLastStep(False), "hint": ""}

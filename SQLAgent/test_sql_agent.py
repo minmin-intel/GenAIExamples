@@ -109,13 +109,14 @@ if __name__ == "__main__":
         tools = get_tools_sql_agent(args)
     elif args.hier_sql_agent:
         from agents.tools import search_web
-        from agents.sql_agent import SQLAgent, SQLAgentWithQueryFixer
+        from agents.sql_agent import SQLAgent, SQLAgentWithQueryFixer, SQLAgentWithHintAndQueryFixer
         from agents.tools import get_tools_sql_agent
         db_query_tool = get_tools_sql_agent(args)[0]
         global sql_agent_fixer
         global sql_agent_fixer_executor
         # sql_agent_fixer = SQLAgent(args, [db_query_tool])
-        sql_agent_fixer = SQLAgentWithQueryFixer(args, [db_query_tool])
+        # sql_agent_fixer = SQLAgentWithQueryFixer(args, [db_query_tool])
+        sql_agent_fixer = SQLAgentWithHintAndQueryFixer(args, [db_query_tool])
         sql_agent_fixer_executor = sql_agent_fixer.app
         tools = [query_database_with_sql_agent, search_web]
         system_message = SystemMessage(content=V10_SYSM)
@@ -130,8 +131,9 @@ if __name__ == "__main__":
         # global sql_agent_fixer_executor
         # sql_agent_fixer = SQLAgentWithQueryFixer(args, [db_query_tool])
         # sql_agent_fixer_executor = sql_agent_fixer.app
-        temp_tools = get_tools_sql_agent(args)
-        tools = [temp_tools[0]] # only use the db_query_tool
+        # temp_tools = get_tools_sql_agent(args)
+        # tools = [temp_tools[0]] # only use the db_query_tool
+        tools = get_tools_sql_agent(args)
     else:
         tools = get_tools(args, llm)
         system_message = SystemMessage(content=V6_SYSM)
@@ -158,8 +160,8 @@ if __name__ == "__main__":
     
     query= [
         # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-        "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
-        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+        # "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
+        "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
         # "How many test takers are there at the school/s in a county with population over 2 million?",
         # "What are the two most common first names among the female school administrators?",
         # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
@@ -195,7 +197,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v9_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v11_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
