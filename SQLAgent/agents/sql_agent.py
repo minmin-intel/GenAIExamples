@@ -11,14 +11,17 @@ from langgraph.managed import IsLastStep
 from langgraph.prebuilt import ToolNode
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
+from langchain_community.retrievers import BM25Retriever
 # from langgraph.checkpoint.memory import MemorySaver
-# from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer
 try:
     from .prompt import *
-    from .hint import generate_hints, generate_column_descriptions
+    from .hint import generate_hints, generate_column_descriptions, pick_hints
+    from .hint import make_documents_from_column_descriptions, pick_hints_bm25
 except:
     from prompt import *
-    from hint import generate_hints, generate_column_descriptions
+    from hint import generate_hints, generate_column_descriptions, pick_hints
+    from hint import make_documents_from_column_descriptions, pick_hints_bm25
 
 
 def get_table_schema(db_name):
@@ -53,8 +56,11 @@ class AgentNode:
         print("----------Call Agent Node----------")
         question = state["messages"][0].content
         table_schema, num_tables = get_table_schema(self.args.db_name)
-        hints = generate_hints(question, self.column_embeddings,self.cols_descriptions)
-        sysm = V12_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
+        if not state["hint"]:
+            hints = pick_hints(question, self.column_embeddings,self.cols_descriptions)
+        else:
+            hints = state["hint"]
+        sysm = V13_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
         _system_message = SystemMessage(content=sysm)
         state_modifier_runnable = RunnableLambda(
             lambda state: [_system_message] + state["messages"],
@@ -127,11 +133,6 @@ class QueryFixerNode:
         # print("@@@@@ Query fixer output:\n", response.content)
         return {"messages": [response]}
 
-# from langchain_core.output_parsers import JsonOutputParser
-# from langchain_core.pydantic_v1 import BaseModel, Field
-
-# class hints(BaseModel):
-#     hints: str
 
 class HintNode:
     def __init__(self, args):
@@ -159,6 +160,45 @@ class HintNode:
         print("@@@@@ Selected Hints: ", selected_hints)
         return {"hint": selected_hints}
     
+class HintNodeKeywordExtraction:
+    def __init__(self, args):
+        llm = ChatOpenAI(model=args.model,temperature=0)
+        prompt = PromptTemplate(
+            template=HINT_TEMPLATE_BM25,
+            input_variables=["DOMAIN","QUESTION"],
+        )
+        self.chain = prompt | llm
+        self.args = args
+        # complete_descriptions, _ = generate_column_descriptions(db_name=args.db_name)
+        # documents = make_documents_from_column_descriptions(complete_descriptions)
+        # topk=1
+        # self.retriever = BM25Retriever.from_documents(documents, k = topk)
+        self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
+        self.embed_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+        self.column_embeddings = self.embed_model.encode(self.values_descriptions)
+
+
+    def __call__(self, state):
+        print("----------Call Hint Node----------")
+        question = state["messages"][0].content
+        response = self.chain.invoke(
+            {
+                "DOMAIN": str(self.args.db_name),
+                "QUESTION": question,
+            }
+        )
+        keywords = response.content
+        print("@@@@@ Keywords: ", keywords)
+        hints = []
+        for keyword in keywords.split(","):
+            # hints_bm25 = pick_hints_bm25(self.retriever, keyword)
+            hints_kw = pick_hints(keyword, self.column_embeddings,self.cols_descriptions)
+            hints.append(hints_kw)
+        hints_set = set(hints)
+        selected_hints = "\n".join(hints_set)
+        print("@@@@@ Selected Hints: ", selected_hints)
+        return {"hint": selected_hints}
+    
 
 class AgentNodeWithHint:
     def __init__(self, args, tools):
@@ -170,7 +210,7 @@ class AgentNodeWithHint:
         question = state["messages"][0].content
         table_schema, num_tables = get_table_schema(self.args.db_name)
         hints = state["hint"]
-        sysm = V12_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
+        sysm = V13_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
         _system_message = SystemMessage(content=sysm)
         state_modifier_runnable = RunnableLambda(
             lambda state: [_system_message] + state["messages"],
@@ -277,7 +317,15 @@ class SQLAgentWithQueryFixer:
             },
         )
 
-        workflow.add_edge("tools", "query_fixer")
+        # workflow.add_edge("tools", "query_fixer")
+        workflow.add_conditional_edges(
+            "tools",
+            self.should_go_to_query_fixer,
+            {
+                "true": "query_fixer",
+                "false": "agent"
+            },
+        )
         workflow.add_edge("query_fixer", "agent")
 
         self.app = workflow.compile()
@@ -298,9 +346,13 @@ class SQLAgentWithQueryFixer:
     def should_go_to_query_fixer(self, state: AgentState):
         messages = state["messages"]
         last_message = messages[-1]
-        if last_message.tool_calls:
+        assert isinstance(last_message, ToolMessage), "The last message should be a tool message"
+        print("@@@@ Called Tool: ", last_message.name)
+        if last_message.name == "sql_db_query":
+            print("@@@@ Going to Query Fixer")
             return "true"
         else:
+            print("@@@@ Going back to Agent")
             return "false"
     
     def prepare_initial_state(self, query):
@@ -402,7 +454,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    hint_gen=HintNode(args)
+    hint_gen=HintNodeBM25(args)
 
     # df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
     # hint_col = []

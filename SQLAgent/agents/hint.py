@@ -1,10 +1,7 @@
 import pandas as pd
 import os
 import glob
-# from sentence_transformers import SentenceTransformer, util
-
-
-
+from sentence_transformers import SentenceTransformer
 
 
 def generate_column_descriptions(db_name):
@@ -53,28 +50,36 @@ def sort_list(list1, list2):
     import numpy as np
     # Use numpy's argsort function to get the indices that would sort the second list
     idx = np.argsort(list2)# ascending order
-    return np.array(list1)[idx].tolist()[::-1]# descending order
+    return np.array(list1)[idx].tolist()[::-1], np.array(list2)[idx].tolist()[::-1]# descending order
 
 def get_topk_cols(topk, cols_descriptions, similarities):
-    sorted_cols = sort_list(cols_descriptions, similarities)
+    sorted_cols, similarities = sort_list(cols_descriptions, similarities)
     top_k_cols = sorted_cols[:topk]
-    return top_k_cols
+    output = []
+    for col, sim in zip(top_k_cols, similarities[:topk]):
+        print(f"{col}: {sim}")
+        if sim > 0.5:
+            output.append(col)
+    return output #top_k_cols
 
 
 def pick_hints(query, column_embeddings, complete_descriptions, topk=5):
-    model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+    # use similarity to get the topk columns
+    model = SentenceTransformer('BAAI/bge-large-en-v1.5')
 
     query_embedding = model.encode(query, convert_to_tensor=True)
     similarities = model.similarity(query_embedding, column_embeddings).flatten()
 
     topk_cols_descriptions = get_topk_cols(topk, complete_descriptions, similarities)
 
-    hint = ""
-    for col in topk_cols_descriptions:
-        hint += (col +'\n')
-    return hint
+    # hint = ""
+    # for col in topk_cols_descriptions:
+    #     hint += (col +'\n')
+    # return hint
+    return topk_cols_descriptions
 
 def generate_hints(db_name):
+    # use llm to generate hints
     complete_descriptions, cols_descriptions = generate_column_descriptions(db_name)
 
     hints = ""
@@ -86,32 +91,62 @@ def generate_hints(db_name):
     return hints
 
 
+def make_documents_from_column_descriptions(complete_descriptions):
+    from langchain_core.documents import Document
+    documents = []
+    for description in complete_descriptions:
+        temp = description.split(":")
+        content = temp[1]
+        meta = {"table_col": temp[0]}
+        documents.append(Document(page_content=content, metadata=meta))
+    return documents
+
+def pick_hints_bm25(retriever, query):
+    docs = retriever.invoke(query)
+    hints = ""
+    for doc in docs:
+        temp = doc.metadata["table_col"] + ": " + doc.page_content #doc.page_content #
+        hints += temp + "\n"
+    return hints
+    
+
+
 if __name__ == "__main__":
     db_name = "california_schools"
-    # model = SentenceTransformer('BAAI/bge-base-en-v1.5')
-
     complete_descriptions, cols_descriptions = generate_column_descriptions(db_name)
 
-    hints = ""
-    for col in complete_descriptions:
-        hints += (col +'\n')
-    print(hints)
+    # # bm25
+    # from langchain_community.retrievers import BM25Retriever
+    # documents = make_documents_from_column_descriptions(complete_descriptions)
+    # topk=5
+    # bm25_retriever = BM25Retriever.from_documents(documents, k = topk)
+    # # query = "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual."
+    # query = "continuation schools" #eligible free rates, overall affordability
+    # hints = pick_hints_bm25(bm25_retriever, query)
+    # print(hints)
 
-    print(len(hints))
-
-    # column_embeddings = model.encode(cols_descriptions)
-    # # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
-    # # hint = generate_hints(query, column_embeddings, cols_descriptions)
-    # # print(hint)
+    # # similarity
+    model = SentenceTransformer('BAAI/bge-large-en-v1.5')
+    column_embeddings = model.encode(cols_descriptions)
+    # query = "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual."
+    query = "continuation schools" #eligible free rates, overall affordability
+    query_list = ["continuation schools", "eligible free rates", "overall affordability"]
+    hints = []
+    for query in query_list:
+        hint = pick_hints(query, column_embeddings, complete_descriptions, topk=3)
+        hints.extend(hint)
+    hints_set = set(hints)
+    for hint in hints_set:
+        print(hint)
     # working_dir = os.getenv("WORKDIR")
     # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
     # hint_cols = []
     # for _, row in df.iterrows():
     #     query = row["Query"]
-    #     hint = generate_hints(query, column_embeddings, complete_descriptions)
+    #     hint = pick_hints(query, column_embeddings, complete_descriptions)
     #     print("Query: ", query)
     #     print("Hint: ", hint)
     #     print("=="*20)
     #     hint_cols.append(hint)
     # df["hints"] = hint_cols
-    # df.to_csv(f"{working_dir}/sql_agent_output/query_california_schools_with_hints.csv", index=False)
+    # df.to_csv(f"{working_dir}/sql_agent_output/query_california_schools_with_hints_bge_large.csv", index=False)
