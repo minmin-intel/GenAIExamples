@@ -3,7 +3,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage, SystemMessage
 from langchain_community.utilities import SQLDatabase
 import os
-from prompt import HINT_TEMPLATE_BM25, HINT_TEMPLATE_KW, HINT_TEMPLATE_KW_V2
+from prompt import HINT_TEMPLATE_KW_V1, HINT_TEMPLATE_KW
 
 def setup_tgi(args):
     from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
@@ -47,7 +47,7 @@ class HintNodeKeywordExtraction:
             )
         else:
             prompt = PromptTemplate(
-                template=HINT_TEMPLATE_KW_V2,
+                template=HINT_TEMPLATE_KW_V1,
                 input_variables=["DOMAIN","QUESTION"],
             )
         self.chain = prompt | llm

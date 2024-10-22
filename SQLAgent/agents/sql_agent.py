@@ -18,10 +18,12 @@ try:
     from .prompt import *
     from .hint import generate_hints, generate_column_descriptions, pick_hints
     from .hint import make_documents_from_column_descriptions, pick_hints_bm25
+    from .hint import generate_hints_given_keywords_list
 except:
     from prompt import *
     from hint import generate_hints, generate_column_descriptions, pick_hints
     from hint import make_documents_from_column_descriptions, pick_hints_bm25
+    from hint import generate_hints_given_keywords_list
 
 
 def get_table_schema(db_name):
@@ -167,7 +169,7 @@ class HintNodeKeywordExtraction:
     def __init__(self, args):
         llm = ChatOpenAI(model=args.model,temperature=0)
         prompt = PromptTemplate(
-            template=HINT_TEMPLATE_BM25,
+            template=HINT_TEMPLATE_KW_V1,
             input_variables=["DOMAIN","QUESTION"],
         )
         self.chain = prompt | llm
@@ -184,23 +186,29 @@ class HintNodeKeywordExtraction:
     def __call__(self, state):
         print("----------Call Hint Node----------")
         question = state["messages"][0].content
-        response = self.chain.invoke(
-            {
-                "DOMAIN": str(self.args.db_name),
-                "QUESTION": question,
-            }
-        )
-        keywords = response.content
-        print("@@@@@ Keywords: ", keywords)
-        hints = []
-        for keyword in keywords.split(","):
-            # hints_bm25 = pick_hints_bm25(self.retriever, keyword)
-            hints_kw = pick_hints(keyword, self.column_embeddings,self.cols_descriptions)
-            hints.append(hints_kw)
-        hints_set = set(hints)
-        selected_hints = "\n".join(hints_set)
-        print("@@@@@ Selected Hints: ", selected_hints)
-        return {"hint": selected_hints}
+        if self.args.debug:
+            import pandas as pd
+            #get keywords from pre-populated csv
+            df = pd.read_csv(self.args.kw_file)
+            keywords = df[df["Query"]==question]["keywords"].values[0]
+        else:
+            response = self.chain.invoke(
+                {
+                    "DOMAIN": str(self.args.db_name),
+                    "QUESTION": question,
+                }
+            )
+            keywords = response.content
+            print("@@@@@ Keywords: ", keywords)
+
+        keywords = keywords.split(",")
+        hints_kw = generate_hints_given_keywords_list(question, keywords, self.embed_model, self.column_embeddings, self.cols_descriptions, topk=3)
+        print("@@@@@ Hints: ", hints_kw)
+        return {"hint": hints_kw}
+        # hints_set = set(hints)
+        # selected_hints = "\n".join(hints_set)
+        # print("@@@@@ Selected Hints: ", selected_hints)
+        # return {"hint": selected_hints}
     
 
 class AgentNodeWithHint:
@@ -369,7 +377,7 @@ class SQLAgentWithHintAndQueryFixer:
     """
     def __init__(self, args, tools):
         agent = AgentNodeWithHint(args, tools)
-        hint_node = HintNode(args)
+        hint_node = HintNodeKeywordExtraction(args)
         query_fixer = QueryFixerNode(args)
         tool_node = ToolNode(tools)
 

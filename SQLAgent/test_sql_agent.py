@@ -13,14 +13,17 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, required=True)
     parser.add_argument("--query_file", type=str, required=True)
+    parser.add_argument("--kw_file", type=str)
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--multiagent", action="store_true")
     parser.add_argument("--critic", action="store_true")
     parser.add_argument("--sql_agent", action="store_true")
     parser.add_argument("--sql_agent_fixer", action="store_true")
+    parser.add_argument("--sql_agent_hint_fixer", action="store_true")
     parser.add_argument("--hier_sql_agent", action="store_true")
     parser.add_argument("--db_name", type=str, default="california_schools")
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -128,7 +131,7 @@ if __name__ == "__main__":
         sql_agent_fixer_executor = sql_agent_fixer.app
         tools = [query_database_with_sql_agent, search_web]
         system_message = SystemMessage(content=V10_SYSM)
-    elif args.sql_agent_fixer:
+    elif args.sql_agent_fixer or args.sql_agent_hint_fixer:
         # from agents.tools import search_web
         # from agents.sql_agent import SQLAgentWithHintAndQueryFixer
         from agents.tools import get_tools_sql_agent
@@ -160,23 +163,28 @@ if __name__ == "__main__":
         from agents.sql_agent import SQLAgentWithQueryFixer
         agent = SQLAgentWithQueryFixer(args, tools)
         agent_executor = agent.app
+    elif args.sql_agent_hint_fixer:
+        from agents.sql_agent import SQLAgentWithHintAndQueryFixer
+        agent = SQLAgentWithHintAndQueryFixer(args, tools)
+        agent_executor = agent.app
     else:
         print(f"Creating agent with tools {tools} and sysm {system_message}....")
         agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    # df = pd.read_csv(args.query_file)
+    df = pd.read_csv(args.query_file)
     
-    query= [
-        # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-        # "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
-        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-        # "How many test takers are there at the school/s in a county with population over 2 million?",
-        # "What are the two most common first names among the female school administrators?",
-        # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
-        "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
-        # "How many schools have the difference in enrollements between K-12 and ages 5-17 as more than average high school class size?",
-        ]
-    df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
+    # query= [
+    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+    #     # "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
+    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+    #     # "How many test takers are there at the school/s in a county with population over 2 million?",
+    #     # "What are the two most common first names among the female school administrators?",
+    #     # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
+    #     # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
+    #     # "How many schools have the difference in enrollements between K-12 and ages 5-17 as more than average high school class size?",
+    #     "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual.",
+    #     ]
+    # df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
     recursion_limit = 25
     results = []
@@ -186,7 +194,7 @@ if __name__ == "__main__":
     for _, row in df.iterrows():
         query = row["Query"]
         ref_answer = row["Answer"]
-        if args.critic or args.sql_agent or args.sql_agent_fixer:
+        if args.critic or args.sql_agent or args.sql_agent_fixer or args.sql_agent_hint_fixer:
             input = agent.prepare_initial_state(query)
         else:
             input = {"messages": [HumanMessage(content=query)]}

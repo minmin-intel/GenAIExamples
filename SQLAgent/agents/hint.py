@@ -57,7 +57,7 @@ def get_topk_cols(topk, cols_descriptions, similarities):
     top_k_cols = sorted_cols[:topk]
     output = []
     for col, sim in zip(top_k_cols, similarities[:topk]):
-        print(f"{col}: {sim}")
+        # print(f"{col}: {sim}")
         if sim > 0.45:
             output.append(col)
     return output #top_k_cols
@@ -113,13 +113,13 @@ def generate_hints_given_keywords_list(query, keywords, model, column_embeddings
     hints = []
     for keyword in keywords:
         hint = pick_hints(keyword, model, column_embeddings, complete_descriptions, topk=topk)
-        print("Query: ", keyword)
-        print("Hint:\n", hint)
-        print("--"*20)
+        # print("Query: ", keyword)
+        # print("Hint:\n", hint)
+        # print("--"*20)
         hints.extend(hint)
     hints_set = set(hints)
     hints_list = list(hints_set)
-    print("# hints: ", len(hints_list))
+    # print("# hints: ", len(hints_list))
     # run similarity against query and pick top-5
     hints_no_table_name = [hint.split(":")[1] for hint in hints_list]
     hints_embeddings = model.encode(hints_list)
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     #     print('Final hint:\n', hint)
     working_dir = os.getenv("WORKDIR")
     # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
-    df = pd.read_csv(f"{working_dir}/sql_agent_output/keywords.csv")
+    df = pd.read_csv(f"{working_dir}/sql_agent_output/keywords_v2.csv")
     hint_cols = []
     for _, row in df.iterrows():
         query = row["Query"]
@@ -177,4 +177,4 @@ if __name__ == "__main__":
         print("=="*20)
         hint_cols.append(hint)
     df["hints"] = hint_cols
-    df.to_csv(f"{working_dir}/sql_agent_output/keywords_hints_llam3.1-70b_noschema.csv", index=False)
+    df.to_csv(f"{working_dir}/sql_agent_output/keywords_v2_hints_llam3.1-70b_noschema.csv", index=False)

@@ -497,7 +497,7 @@ Now take a deep breath and think step by step to solve the problem.
 """
 
 
-HINT_TEMPLATE_BM25 = """\
+HINT_TEMPLATE_KW_V1 = """\
 You are a domain expert in {DOMAIN}. \
 Your task is to extract the terms from the question that require explanations with domain knowledge.
 
