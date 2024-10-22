@@ -3,7 +3,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage, SystemMessage
 from langchain_community.utilities import SQLDatabase
 import os
-from .prompt import HINT_TEMPLATE_BM25, HINT_TEMPLATE_KW
+from prompt import HINT_TEMPLATE_BM25, HINT_TEMPLATE_KW
 
 def setup_tgi(args):
     from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
@@ -39,14 +39,17 @@ class HintNodeKeywordExtraction:
         # else:
         #     llm = ChatOpenAI(model=args.model,temperature=0)
         llm = setup_tgi(args)
-        # prompt = PromptTemplate(
-        #     template=HINT_TEMPLATE_BM25,
-        #     input_variables=["DOMAIN","QUESTION"],
-        # )
-        prompt = PromptTemplate(
-            template=HINT_TEMPLATE_KW,
-            input_variables=["DATABASE_SCHEMA", "DOMAIN","QUESTION"],
-        )
+        
+        if args.add_schema:
+            prompt = PromptTemplate(
+                template=HINT_TEMPLATE_KW,
+                input_variables=["DATABASE_SCHEMA", "DOMAIN","QUESTION"],
+            )
+        else:
+            prompt = PromptTemplate(
+                template=HINT_TEMPLATE_BM25,
+                input_variables=["DOMAIN","QUESTION"],
+            )
         self.chain = prompt | llm
         self.args = args
         # complete_descriptions, _ = generate_column_descriptions(db_name=args.db_name)
@@ -61,20 +64,23 @@ class HintNodeKeywordExtraction:
     def __call__(self, state):
         print("----------Call Hint Node----------")
         question = state["messages"][0].content
-        # response = self.chain.invoke(
-        #     {
-        #         "DOMAIN": str(self.args.db_name),
-        #         "QUESTION": question,
-        #     }
-        # )
-        db_schema, _ = get_table_schema(self.args.db_name)
-        response = self.chain.invoke(
-            {
-                "DATABASE_SCHEMA": db_schema,
-                "DOMAIN": str(self.args.db_name),
-                "QUESTION": question,
-            }
-        )
+        if self.args.add_schema:
+            db_schema, _ = get_table_schema(self.args.db_name)
+            response = self.chain.invoke(
+                {
+                    "DATABASE_SCHEMA": db_schema,
+                    "DOMAIN": str(self.args.db_name),
+                    "QUESTION": question,
+                }
+            )
+        else:
+            response = self.chain.invoke(
+                {
+                    "DOMAIN": str(self.args.db_name),
+                    "QUESTION": question,
+                }
+            )
+
         keywords = response.content
         print("@@@@@ Keywords: ", keywords)
         return keywords
@@ -98,6 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("--query_file", type=str, default="query.json")
     parser.add_argument("--tgi", action="store_true")
     parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
+    parser.add_argument("--add_schema", action="store_true")
 
     args = parser.parse_args()
 
@@ -117,7 +124,10 @@ if __name__ == "__main__":
         hint_col.append(res)
         print("=="*20)
     df["keywords"] = hint_col
-    df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/keywords.csv", index=False)
+    if args.add_schema:
+        df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/keywords_with_schema.csv", index=False)
+    else:
+        df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/keywords.csv", index=False)
     
     # # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
     # # query = "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?"
