@@ -8,7 +8,7 @@ def setup_tgi(args):
     from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
     llm = HuggingFaceEndpoint(
-        repo_id=args.model,
+        endpoint_url=args.llm_endpoint_url,
         task="text-generation",
         max_new_tokens=128,
         do_sample=False,
@@ -69,6 +69,7 @@ if __name__ == "__main__":
     parser.add_argument("--db_name", type=str, default="california_schools")
     parser.add_argument("--query_file", type=str, default="query.json")
     parser.add_argument("--tgi", action="store_true")
+    parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
 
     args = parser.parse_args()
 

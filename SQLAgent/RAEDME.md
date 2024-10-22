@@ -18,6 +18,6 @@ chmod +x get_dbs.sh
 ```
 3. Get query by database
 ```
-cd $WORKDIR/GenAIExample/SQLAgent/data_preprocess
+cd $WORKDIR/GenAIExamples/SQLAgent/data_preprocess
 bash run_data_split.sh
 ```
