@@ -506,3 +506,18 @@ Question:
 
 Limit to no more than 3 terms. Output in a comma-separated list. Output nothing else.
 """
+
+HINT_TEMPLATE_KW = """\
+You are a domain expert in {DOMAIN}. \
+Your task is to extract the terms from the question that require explanations with domain knowledge. 
+Only extract the terms that are relevant to the database schema.
+**************************
+Question:
+{QUESTION}
+**************************
+Table creation statements
+{DATABASE_SCHEMA}
+**************************
+
+Limit to no more than 3 terms. Output in a comma-separated list. Output nothing else.
+"""

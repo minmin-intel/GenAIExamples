@@ -1,8 +1,9 @@
 from langchain_core.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage, SystemMessage
+from langchain_community.utilities import SQLDatabase
 import os
-from .prompt import HINT_TEMPLATE_BM25
+from .prompt import HINT_TEMPLATE_BM25, HINT_TEMPLATE_KW
 
 def setup_tgi(args):
     from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
@@ -12,20 +13,39 @@ def setup_tgi(args):
         task="text-generation",
         max_new_tokens=128,
         do_sample=False,
+        streaming=False,
+        return_full_text=False
     )
 
-    chat_model = ChatHuggingFace(llm=llm)
+    chat_model = ChatHuggingFace(llm=llm, model_id=args.model)
     return chat_model
+
+
+def get_table_schema(db_name):
+    working_dir = os.getenv("WORKDIR")
+    DBPATH=f"{working_dir}/TAG-Bench/dev_folder/dev_databases/{db_name}/{db_name}.sqlite"
+    uri= "sqlite:///{path}".format(path=DBPATH)
+    db = SQLDatabase.from_uri(uri)
+    table_names = ", ".join(db.get_usable_table_names())
+    num_tables = len(table_names.split(","))
+    schema = db.get_table_info_no_throw([t.strip() for t in table_names.split(",")])
+    return schema, num_tables
+
 
 class HintNodeKeywordExtraction:
     def __init__(self, args):
-        if args.tgi:
-            llm = setup_tgi(args)
-        else:
-            llm = ChatOpenAI(model=args.model,temperature=0)
+        # if args.tgi:
+        #     llm = setup_tgi(args)
+        # else:
+        #     llm = ChatOpenAI(model=args.model,temperature=0)
+        llm = setup_tgi(args)
+        # prompt = PromptTemplate(
+        #     template=HINT_TEMPLATE_BM25,
+        #     input_variables=["DOMAIN","QUESTION"],
+        # )
         prompt = PromptTemplate(
-            template=HINT_TEMPLATE_BM25,
-            input_variables=["DOMAIN","QUESTION"],
+            template=HINT_TEMPLATE_KW,
+            input_variables=["DATABASE_SCHEMA", "DOMAIN","QUESTION"],
         )
         self.chain = prompt | llm
         self.args = args
@@ -41,8 +61,16 @@ class HintNodeKeywordExtraction:
     def __call__(self, state):
         print("----------Call Hint Node----------")
         question = state["messages"][0].content
+        # response = self.chain.invoke(
+        #     {
+        #         "DOMAIN": str(self.args.db_name),
+        #         "QUESTION": question,
+        #     }
+        # )
+        db_schema, _ = get_table_schema(self.args.db_name)
         response = self.chain.invoke(
             {
+                "DATABASE_SCHEMA": db_schema,
                 "DOMAIN": str(self.args.db_name),
                 "QUESTION": question,
             }
