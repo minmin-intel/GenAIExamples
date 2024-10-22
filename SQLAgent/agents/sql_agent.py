@@ -11,7 +11,7 @@ from langgraph.managed import IsLastStep
 from langgraph.prebuilt import ToolNode
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
-from langchain_community.retrievers import BM25Retriever
+# from langchain_community.retrievers import BM25Retriever
 # from langgraph.checkpoint.memory import MemorySaver
 from sentence_transformers import SentenceTransformer
 try:
@@ -79,7 +79,7 @@ class QueryFixerNode:
         from .prompt import QUERYFIXER_PROMPT
         llm = ChatOpenAI(model=args.model,temperature=0)
         prompt = PromptTemplate(
-            template=QUERYFIXER_PROMPT_v3,
+            template=QUERYFIXER_PROMPT_v4,
             input_variables=["DATABASE_SCHEMA", "QUESTION", "HINT", "QUERY", "RESULT"],
         )
         self.chain = prompt | llm
@@ -92,14 +92,17 @@ class QueryFixerNode:
         id = messages[-1].tool_call_id
         # assert isinstance(messages[-2], AIMessage), "The second last message should be AI message with tool call"
         # query = messages[-2].tool_calls[0]["args"]["query"]
+        query = ""
+        question = ""
         for msg in reversed(messages):
             if isinstance(msg, AIMessage) and msg.tool_calls:
                 if msg.tool_calls[0]["id"] == id:
                     query = msg.tool_calls[0]["args"]["query"]
+                    question = msg.content
                     break
         print("@@@@ Executed SQL Query: ", query)
         print("@@@@ Execution Result: ", result)
-        return query, result
+        return query, result, question
 
     def __call__(self, state):
         """
@@ -118,13 +121,13 @@ class QueryFixerNode:
         """
         print("----------Call Query Fixer Node----------")
         table_schema, _ = get_table_schema(self.args.db_name)
-        question = state["messages"][0].content
+        # question = state["messages"][0].content
         hint = state["hint"]
-        query, result = self.get_sql_query_and_result(state)
+        query, result, thought = self.get_sql_query_and_result(state)
         response = self.chain.invoke(
             {
                 "DATABASE_SCHEMA": table_schema,
-                "QUESTION": question,
+                "QUESTION": thought,
                 "HINT": hint,
                 "QUERY": query,
                 "RESULT": result,
@@ -454,7 +457,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    hint_gen=HintNodeBM25(args)
+    hint_gen=HintNodeKeywordExtraction(args)
 
     # df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
     # hint_col = []

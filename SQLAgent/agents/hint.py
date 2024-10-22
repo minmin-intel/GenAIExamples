@@ -57,7 +57,7 @@ def get_topk_cols(topk, cols_descriptions, similarities):
     top_k_cols = sorted_cols[:topk]
     output = []
     for col, sim in zip(top_k_cols, similarities[:topk]):
-        print(f"{col}: {sim}")
+        # print(f"{col}: {sim}")
         if sim > 0.5:
             output.append(col)
     return output #top_k_cols
@@ -65,7 +65,7 @@ def get_topk_cols(topk, cols_descriptions, similarities):
 
 def pick_hints(query, column_embeddings, complete_descriptions, topk=5):
     # use similarity to get the topk columns
-    model = SentenceTransformer('BAAI/bge-large-en-v1.5')
+    model = SentenceTransformer('BAAI/bge-base-en-v1.5')
 
     query_embedding = model.encode(query, convert_to_tensor=True)
     similarities = model.similarity(query_embedding, column_embeddings).flatten()
@@ -126,18 +126,21 @@ if __name__ == "__main__":
     # print(hints)
 
     # # similarity
-    model = SentenceTransformer('BAAI/bge-large-en-v1.5')
+    model = SentenceTransformer('BAAI/bge-base-en-v1.5')
     column_embeddings = model.encode(cols_descriptions)
     # query = "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual."
-    query = "continuation schools" #eligible free rates, overall affordability
+    # query = "continuation schools" #eligible free rates, overall affordability
     query_list = ["continuation schools", "eligible free rates", "overall affordability"]
     hints = []
     for query in query_list:
         hint = pick_hints(query, column_embeddings, complete_descriptions, topk=3)
+        print("Query: ", query)
+        print("Hint:\n", hint)
+        print("=="*20)
         hints.extend(hint)
     hints_set = set(hints)
     for hint in hints_set:
-        print(hint)
+        print('Final hint:\n', hint)
     # working_dir = os.getenv("WORKDIR")
     # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
     # hint_cols = []

@@ -370,6 +370,43 @@ The execution result:
 Based on the question, table schema, hint and the previous query, analyze the result. Fix the query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer.
 """
 
+QUERYFIXER_PROMPT_v4 = """\
+You are an SQL database expert tasked with reviewing a query written by an SQL agent. 
+**Procedure:**
+1. Review Database Schema:
+- Examine the table creation statements to understand the database structure.
+2. Review the Hint provided.
+- Use the provided hints to understand the domain knowledge relevant to the query.
+3. Analyze Query Requirements:
+- Consider the intentions of the SQL agent by reviewing its thought process.
+- Executed SQL Query: Review the SQL query that was previously executed.
+- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. If the result does not make sense, identify the issues with the executed SQL query (e.g., null values, syntax
+errors, incorrect table references, incorrect column references, logical mistakes).
+4. Correct the Query if Necessary:
+- If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data
+according to the database schema and query requirements.
+5. If the query is correct, provide the same query as the final answer.
+
+======= Your task =======
+**************************
+Table creation statements
+{DATABASE_SCHEMA}
+**************************
+Hint:
+{HINT}
+**************************
+Intentions of the SQL agent:
+{QUESTION}
+**************************
+The SQL query executed was:
+{QUERY}
+**************************
+The execution result:
+{RESULT}
+**************************
+Based on the question, table schema, hint and the intentions, analyze the result. Fix the query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer.
+"""
+
 
 ### hint selection node
 HINT_TEMPLATE_v1 = """\
