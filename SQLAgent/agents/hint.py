@@ -57,15 +57,15 @@ def get_topk_cols(topk, cols_descriptions, similarities):
     top_k_cols = sorted_cols[:topk]
     output = []
     for col, sim in zip(top_k_cols, similarities[:topk]):
-        # print(f"{col}: {sim}")
-        if sim > 0.5:
+        print(f"{col}: {sim}")
+        if sim > 0.45:
             output.append(col)
     return output #top_k_cols
 
 
-def pick_hints(query, column_embeddings, complete_descriptions, topk=5):
+def pick_hints(query, model, column_embeddings, complete_descriptions, topk=5):
     # use similarity to get the topk columns
-    model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+    # model = SentenceTransformer('BAAI/bge-base-en-v1.5')
 
     query_embedding = model.encode(query, convert_to_tensor=True)
     similarities = model.similarity(query_embedding, column_embeddings).flatten()
@@ -109,7 +109,28 @@ def pick_hints_bm25(retriever, query):
         hints += temp + "\n"
     return hints
     
-
+def generate_hints_given_keywords_list(query, keywords, model, column_embeddings, complete_descriptions, topk=3):
+    hints = []
+    for keyword in keywords:
+        hint = pick_hints(keyword, model, column_embeddings, complete_descriptions, topk=topk)
+        print("Query: ", keyword)
+        print("Hint:\n", hint)
+        print("--"*20)
+        hints.extend(hint)
+    hints_set = set(hints)
+    hints_list = list(hints_set)
+    print("# hints: ", len(hints_list))
+    # run similarity against query and pick top-5
+    hints_no_table_name = [hint.split(":")[1] for hint in hints_list]
+    hints_embeddings = model.encode(hints_list)
+    query_embedding = model.encode(query, convert_to_tensor=True)
+    similarities = model.similarity(query_embedding, hints_embeddings).flatten()
+    final_hints_list = get_topk_cols(5, hints_list, similarities)
+    print("Final hints: ", len(final_hints_list))
+    final_hints = ""
+    for hint in final_hints_list:
+        final_hints += hint + "\n"
+    return final_hints
 
 if __name__ == "__main__":
     db_name = "california_schools"
@@ -130,26 +151,30 @@ if __name__ == "__main__":
     column_embeddings = model.encode(cols_descriptions)
     # query = "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual."
     # query = "continuation schools" #eligible free rates, overall affordability
-    query_list = ["continuation schools", "eligible free rates", "overall affordability"]
-    hints = []
-    for query in query_list:
-        hint = pick_hints(query, column_embeddings, complete_descriptions, topk=3)
-        print("Query: ", query)
-        print("Hint:\n", hint)
-        print("=="*20)
-        hints.extend(hint)
-    hints_set = set(hints)
-    for hint in hints_set:
-        print('Final hint:\n', hint)
-    # working_dir = os.getenv("WORKDIR")
-    # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
-    # hint_cols = []
-    # for _, row in df.iterrows():
-    #     query = row["Query"]
-    #     hint = pick_hints(query, column_embeddings, complete_descriptions)
+    # query_list = ["continuation schools", "eligible free rates", "overall affordability"]
+    # hints = []
+    # for query in query_list:
+    #     hint = pick_hints(query, column_embeddings, complete_descriptions, topk=3)
     #     print("Query: ", query)
-    #     print("Hint: ", hint)
+    #     print("Hint:\n", hint)
     #     print("=="*20)
-    #     hint_cols.append(hint)
-    # df["hints"] = hint_cols
-    # df.to_csv(f"{working_dir}/sql_agent_output/query_california_schools_with_hints_bge_large.csv", index=False)
+    #     hints.extend(hint)
+    # hints_set = set(hints)
+    # for hint in hints_set:
+    #     print('Final hint:\n', hint)
+    working_dir = os.getenv("WORKDIR")
+    # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
+    df = pd.read_csv(f"{working_dir}/sql_agent_output/keywords.csv")
+    hint_cols = []
+    for _, row in df.iterrows():
+        query = row["Query"]
+        # hint = pick_hints(query, column_embeddings, complete_descriptions)
+        # print("Query: ", query)
+        keywords = row["keywords"]
+        keywords = keywords.split(",")
+        hint = generate_hints_given_keywords_list(query, keywords, model, column_embeddings, complete_descriptions, topk=3)
+        print("Hint: ", hint)
+        print("=="*20)
+        hint_cols.append(hint)
+    df["hints"] = hint_cols
+    df.to_csv(f"{working_dir}/sql_agent_output/keywords_hints_llam3.1-70b_noschema.csv", index=False)

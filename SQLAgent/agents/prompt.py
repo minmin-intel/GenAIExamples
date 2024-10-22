@@ -507,6 +507,17 @@ Question:
 Limit to no more than 3 terms. Output in a comma-separated list. Output nothing else.
 """
 
+HINT_TEMPLATE_KW_V2 = """\
+You are a domain expert in {DOMAIN}. \
+Your task is to extract the terms from the question that require explanations with domain knowledge.
+
+Question:
+{QUESTION}
+
+Only pick terms that require special knowledge in your domain. Do not pick terms that can be understood with common knowledge. 
+Limit to no more than 3 terms. Output in a comma-separated list. Output nothing else.
+"""
+
 HINT_TEMPLATE_KW = """\
 You are a domain expert in {DOMAIN}. \
 Your task is to extract the terms from the question that require explanations with domain knowledge. 
