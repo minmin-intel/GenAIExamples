@@ -9,7 +9,6 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.managed import IsLastStep
 from langgraph.prebuilt import ToolNode
-from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 # from langchain_community.retrievers import BM25Retriever
 # from langgraph.checkpoint.memory import MemorySaver
@@ -74,7 +73,7 @@ class AgentNode:
         question = state["messages"][0].content
         table_schema, num_tables = get_table_schema(self.args.db_name)
         if not state["hint"]:
-            hints = pick_hints(question, self.column_embeddings,self.cols_descriptions)
+            hints = pick_hints(question, self.embed_model,self.column_embeddings,self.cols_descriptions)
         else:
             hints = state["hint"]
         sysm = V13_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)

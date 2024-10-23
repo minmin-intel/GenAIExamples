@@ -108,8 +108,8 @@ def save_json_lines(json_lines, args):
 
 if __name__ == "__main__":
     args = get_args()
-    
-    llm = ChatOpenAI(model=args.model, temperature=0)
+    if not args.tgi_llama:
+        llm = ChatOpenAI(model=args.model, temperature=0)
     if args.multiagent:
         from agents.tools import search_web
         tools = [query_sql_database, search_web]
