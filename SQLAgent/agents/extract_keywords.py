@@ -99,7 +99,7 @@ class HintNodeQueryRewrite:
         llm = setup_tgi(args)    
         prompt = PromptTemplate(
             template=QUERY_REWRITE_TEMPLATE,
-            input_variables=["DOMAIN","QUESTION"],
+            input_variables=["QUESTION"],
         )
         self.chain = prompt | llm
         self.args = args
@@ -109,11 +109,12 @@ class HintNodeQueryRewrite:
         question = state["messages"][0].content
         response = self.chain.invoke(
             {
-                "DOMAIN": str(self.args.db_name),
+                # "DOMAIN": str(self.args.db_name),
                 "QUESTION": question,
             }
         )
         rewrite = response.content
+        print("@@@@@ Rewrite: ", rewrite)
         # use rewrite to retrieve hints
         return rewrite
 

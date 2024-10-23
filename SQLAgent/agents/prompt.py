@@ -609,6 +609,14 @@ Limit to no more than 3 terms. Output in a comma-separated list. Output nothing 
 
 ### query rewrite
 QUERY_REWRITE_TEMPLATE = """\
-You are an expert in {DOMAIN}. Rewrite the following question to make it crispy clear.
-Question: {QUESTION}
+Rewrite the following question in affirmative tone to make it crispy clear.
+**************************
+Example:
+Original Question: What is the average salary of employees?
+Rewritten Question: Calculate the average salary of employees.
+**************************
+Your task:
+Original Question: {QUESTION}
+**************************
+Only output the rewritten question. Do not output anything else.
 """
