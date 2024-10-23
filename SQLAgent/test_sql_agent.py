@@ -15,7 +15,6 @@ def get_args():
     parser.add_argument("--query_file", type=str, required=True)
     parser.add_argument("--kw_file", type=str)
     parser.add_argument("--output", type=str, required=True)
-    parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--multiagent", action="store_true")
     parser.add_argument("--critic", action="store_true")
     parser.add_argument("--sql_agent", action="store_true")
@@ -24,6 +23,9 @@ def get_args():
     parser.add_argument("--hier_sql_agent", action="store_true")
     parser.add_argument("--db_name", type=str, default="california_schools")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--model", type=str, default="meta-llama/Llama-3.1-70B-Instruct")
+    parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
+    parser.add_argument("--tgi_llama", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -160,9 +162,16 @@ if __name__ == "__main__":
         agent = SQLAgent(args, tools)
         agent_executor = agent.app
     elif args.sql_agent_fixer:
-        from agents.sql_agent import SQLAgentWithQueryFixer
-        agent = SQLAgentWithQueryFixer(args, tools)
-        agent_executor = agent.app
+        if args.tgi_llama:
+            print("========Initializing SQLAgentWithQueryFixer with LLAMA-3.1-70B-instruct ========")
+            from agents.sql_agent_llama import SQLAgentWithQueryFixerLLAMA
+            agent = SQLAgentWithQueryFixerLLAMA(args, tools)
+            agent_executor = agent.app
+        else:
+            print("========Initializing SQLAgentWithQueryFixer with GPT-4o-mini ========")
+            from agents.sql_agent import SQLAgentWithQueryFixer
+            agent = SQLAgentWithQueryFixer(args, tools)
+            agent_executor = agent.app
     elif args.sql_agent_hint_fixer:
         from agents.sql_agent import SQLAgentWithHintAndQueryFixer
         agent = SQLAgentWithHintAndQueryFixer(args, tools)
@@ -171,23 +180,23 @@ if __name__ == "__main__":
         print(f"Creating agent with tools {tools} and sysm {system_message}....")
         agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    df = pd.read_csv(args.query_file)
+    # df = pd.read_csv(args.query_file)
     
-    # query= [
-    #     "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-    #     # "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
-    #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-    #     # "How many test takers are there at the school/s in a county with population over 2 million?",
-    #     # "What are the two most common first names among the female school administrators?",
-    #     # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
-    #     # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
-    #     # "How many schools have the difference in enrollements between K-12 and ages 5-17 as more than average high school class size?",
-    #     # "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual.",
-    #     # "List the cities containing the top 5 most enrolled schools in order from most diverse to least diverse. ",
-    #     ]
-    # df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
+    query= [
+        "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+        # "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
+        # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
+        # "How many test takers are there at the school/s in a county with population over 2 million?",
+        # "What are the two most common first names among the female school administrators?",
+        # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
+        # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
+        # "How many schools have the difference in enrollements between K-12 and ages 5-17 as more than average high school class size?",
+        # "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual.",
+        # "List the cities containing the top 5 most enrolled schools in order from most diverse to least diverse. ",
+        ]
+    df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
-    recursion_limit = 25
+    recursion_limit = 15
     results = []
     traces = []
     num_llm_calls = []
@@ -218,7 +227,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v14_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "llama_test_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 

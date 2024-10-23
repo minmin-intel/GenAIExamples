@@ -58,7 +58,7 @@ def get_topk_cols(topk, cols_descriptions, similarities):
     output = []
     for col, sim in zip(top_k_cols, similarities[:topk]):
         # print(f"{col}: {sim}")
-        if sim > 0.45:
+        if sim > 0.5: #0.45 for kw
             output.append(col)
     return output #top_k_cols
 
@@ -72,11 +72,11 @@ def pick_hints(query, model, column_embeddings, complete_descriptions, topk=5):
 
     topk_cols_descriptions = get_topk_cols(topk, complete_descriptions, similarities)
 
-    # hint = ""
-    # for col in topk_cols_descriptions:
-    #     hint += (col +'\n')
-    # return hint
-    return topk_cols_descriptions
+    hint = ""
+    for col in topk_cols_descriptions:
+        hint += (col +'\n')
+    return hint
+    # return topk_cols_descriptions
 
 def generate_hints(db_name):
     # use llm to generate hints
@@ -164,17 +164,18 @@ if __name__ == "__main__":
     #     print('Final hint:\n', hint)
     working_dir = os.getenv("WORKDIR")
     # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
-    df = pd.read_csv(f"{working_dir}/sql_agent_output/keywords_v2.csv")
+    df = pd.read_csv(f"{working_dir}/sql_agent_output/query_rewrite.csv")
     hint_cols = []
     for _, row in df.iterrows():
-        query = row["Query"]
-        # hint = pick_hints(query, column_embeddings, complete_descriptions)
-        # print("Query: ", query)
-        keywords = row["keywords"]
-        keywords = keywords.split(",")
-        hint = generate_hints_given_keywords_list(query, keywords, model, column_embeddings, complete_descriptions, topk=3)
+        # query = row["Query"]
+        query = row["rewrite"]
+        hint = pick_hints(query, model, column_embeddings, complete_descriptions)
+        print("Query: ", query)
+        # keywords = row["keywords"]
+        # keywords = keywords.split(",")
+        # hint = generate_hints_given_keywords_list(query, keywords, model, column_embeddings, complete_descriptions, topk=3)
         print("Hint: ", hint)
         print("=="*20)
         hint_cols.append(hint)
     df["hints"] = hint_cols
-    df.to_csv(f"{working_dir}/sql_agent_output/keywords_v2_hints_llam3.1-70b_noschema.csv", index=False)
+    df.to_csv(f"{working_dir}/sql_agent_output/rewrite_hints_llam3.1-70b_v1.csv", index=False)

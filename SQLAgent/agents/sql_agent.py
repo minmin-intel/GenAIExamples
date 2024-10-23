@@ -78,10 +78,9 @@ class AgentNode:
 
 class QueryFixerNode:
     def __init__(self, args):
-        from .prompt import QUERYFIXER_PROMPT
         llm = ChatOpenAI(model=args.model,temperature=0)
         prompt = PromptTemplate(
-            template=QUERYFIXER_PROMPT_v4,
+            template=QUERYFIXER_PROMPT_v3,
             input_variables=["DATABASE_SCHEMA", "QUESTION", "HINT", "QUERY", "RESULT"],
         )
         self.chain = prompt | llm
@@ -108,23 +107,21 @@ class QueryFixerNode:
 
     def __call__(self, state):
         """
+        **************************
         Table creation statements
         {DATABASE_SCHEMA}
         **************************
         Hint:
         {HINT}
         **************************
-        The original question:
+        The original question is:
+        Question:
         {QUESTION}
-        **************************
-        Thought process of the SQL agent:
-        {THOUGHT}
-        **************************
         The SQL query executed was:
         {QUERY}
-        **************************
         The execution result:
         {RESULT}
+        **************************
         """
         print("----------Call Query Fixer Node----------")
         table_schema, _ = get_table_schema(self.args.db_name)
@@ -135,7 +132,7 @@ class QueryFixerNode:
             {
                 "DATABASE_SCHEMA": table_schema,
                 "QUESTION": question,
-                "THOUGHT": thought,
+                # "THOUGHT": thought,
                 "HINT": hint,
                 "QUERY": query,
                 "RESULT": result,

@@ -14,7 +14,4 @@ python3 test_sql_agent.py \
 --model $MODEL \
 --debug \
 --kw_file $KWFILE \
---sql_agent_hint_fixer | tee $OUTFOLDER/v14_log.txt
-# --hier_sql_agent
-
-# --multiagent
+--sql_agent_hint_fixer | tee $OUTFOLDER/llama_test_log.txt
