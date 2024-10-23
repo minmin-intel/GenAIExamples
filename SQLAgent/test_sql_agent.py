@@ -174,7 +174,7 @@ if __name__ == "__main__":
     df = pd.read_csv(args.query_file)
     
     # query= [
-    #     # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+    #     "What is the telephone number for the school with the lowest average score in reading in Southern California?",
     #     # "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
     #     # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
     #     # "How many test takers are there at the school/s in a county with population over 2 million?",
@@ -182,7 +182,8 @@ if __name__ == "__main__":
     #     # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
     #     # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
     #     # "How many schools have the difference in enrollements between K-12 and ages 5-17 as more than average high school class size?",
-    #     "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual.",
+    #     # "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual.",
+    #     # "List the cities containing the top 5 most enrolled schools in order from most diverse to least diverse. ",
     #     ]
     # df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
@@ -217,7 +218,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "v13_result_{}".format(args.model))
+    outfile = args.query_file.split("/")[-1].replace("query", "v14_result_{}".format(args.model))
     
     df.to_csv(os.path.join(args.output, outfile), index=False)
 

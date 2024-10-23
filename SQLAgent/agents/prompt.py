@@ -407,6 +407,53 @@ The execution result:
 Based on the question, table schema, hint and the intentions, analyze the result. Fix the query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer.
 """
 
+QUERYFIXER_PROMPT_v5 = """\
+You are an SQL database expert tasked with reviewing a query written by an SQL agent. \
+The SQL agent was asked the original question step by step. You are reviewing one of the many steps that the agent has taken. \
+Your job is to review the SQL query executed by the SQL agent in this step to see if:
+1) the query correctly achieves the agent's goal in this step. If not, correct the query.
+2) The result of the query is useful in answering the original question. If not, correct the query.
+Note that the database may not have all the information needed to answer the original question. So SQL queries may only retrieve partial information. The SQL agent has a web search tool to gather additional information.
+
+**Procedure:**
+1. Review Database Schema:
+- Examine the table creation statements to understand the database structure.
+2. Review the Hint provided.
+- Use the provided hints to understand the domain knowledge relevant to the query.
+3. Analyze Query Requirements:
+- Read the original question to understand the information the query is supposed to retrieve.
+- Review the thought process of the SQL agent. Check if the SQL query executed by the SQL agent can be used to solve the original question.
+- Executed SQL Query: Review the SQL query that was previously executed.
+- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. If the result does not make sense, identify the issues with the executed SQL query (e.g., null values, syntax
+errors, incorrect table references, incorrect column references, logical mistakes).
+4. Correct the Query if Necessary:
+- If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data
+according to the database schema and query requirements.
+5. If the query is correct, provide the same query as the final answer.
+
+======= Your task =======
+**************************
+Table creation statements
+{DATABASE_SCHEMA}
+**************************
+Hint:
+{HINT}
+**************************
+The original question:
+{QUESTION}
+**************************
+Thought process of the SQL agent:
+{THOUGHT}
+**************************
+The SQL query executed was:
+{QUERY}
+**************************
+The execution result:
+{RESULT}
+**************************
+Based on the question, table schema, hint and the thought process, analyze the result. Fix the query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer.
+"""
+
 
 ### hint selection node
 HINT_TEMPLATE_v1 = """\
@@ -496,6 +543,33 @@ IMPORTANT:
 Now take a deep breath and think step by step to solve the problem.
 """
 
+# v14 for single sql agent with hints and fixer
+V14_SYSM = """\
+You are an SQL expert tasked with answering questions about schools in California. 
+You can access a database that has {num_tables} tables. The schema of the tables is as follows. Read the schema carefully.
+{tables_schema}
+****************
+Question: {question}
+****************
+Hints:
+{hints}
+****************
+
+When querying the database, remember the following:
+1. You MUST double check your SQL query before executing it. Reflect on the steps you have taken and fix errors if there are any. If you get an error while executing a query, rewrite the query and try again.
+2. Unless the user specifies a specific number of examples they wish to obtain, always limit your query to no more than 20 results.
+3. Only query columns that are relevant to the question.
+4. DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+
+IMPORTANT:
+* Divide the question into sub-questions and conquer sub-questions one by one. 
+* You may need to combine information from multiple tables to answer the question.
+* The database may not have all the information needed to answer the question, use the web search tool or your own knowledge.
+* If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box. You hard work will be rewarded.
+
+Now take a deep breath and think step by step to solve the problem.
+"""
+
 
 HINT_TEMPLATE_KW_V1 = """\
 You are a domain expert in {DOMAIN}. \
@@ -531,4 +605,10 @@ Table creation statements
 **************************
 
 Limit to no more than 3 terms. Output in a comma-separated list. Output nothing else.
+"""
+
+### query rewrite
+QUERY_REWRITE_TEMPLATE = """\
+You are an expert in {DOMAIN}. Rewrite the following question to make it crispy clear.
+Question: {QUESTION}
 """

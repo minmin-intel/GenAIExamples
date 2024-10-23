@@ -3,7 +3,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage, SystemMessage
 from langchain_community.utilities import SQLDatabase
 import os
-from prompt import HINT_TEMPLATE_KW_V1, HINT_TEMPLATE_KW
+from prompt import *
 
 def setup_tgi(args):
     from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
@@ -94,6 +94,28 @@ class HintNodeKeywordExtraction:
         # print("@@@@@ Selected Hints: ", selected_hints)
         # return {"hint": selected_hints}
 
+class HintNodeQueryRewrite:
+    def __init__(self, args):
+        llm = setup_tgi(args)    
+        prompt = PromptTemplate(
+            template=QUERY_REWRITE_TEMPLATE,
+            input_variables=["DOMAIN","QUESTION"],
+        )
+        self.chain = prompt | llm
+        self.args = args
+    
+    def __call__(self, state):
+        print("----------Call Hint Node----------")
+        question = state["messages"][0].content
+        response = self.chain.invoke(
+            {
+                "DOMAIN": str(self.args.db_name),
+                "QUESTION": question,
+            }
+        )
+        rewrite = response.content
+        # use rewrite to retrieve hints
+        return rewrite
 
 if __name__ == "__main__":
     import argparse
@@ -105,10 +127,13 @@ if __name__ == "__main__":
     parser.add_argument("--tgi", action="store_true")
     parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
     parser.add_argument("--add_schema", action="store_true")
+    parser.add_argument("--rewrite", action="store_true")
 
     args = parser.parse_args()
-
-    hint_gen=HintNodeKeywordExtraction(args)
+    if args.rewrite:
+        hint_gen=HintNodeQueryRewrite(args)
+    else:
+        hint_gen=HintNodeKeywordExtraction(args)
 
     df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
     hint_col = []
@@ -123,11 +148,17 @@ if __name__ == "__main__":
         res = hint_gen(state)
         hint_col.append(res)
         print("=="*20)
-    df["keywords"] = hint_col
-    if args.add_schema:
-        df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/keywords_with_schema.csv", index=False)
+    
+    if args.rewrite:
+        df["rewrite"] = hint_col
+        df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/query_rewrite.csv", index=False)
+
     else:
-        df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/keywords.csv", index=False)
+        df["keywords"] = hint_col
+        if args.add_schema:
+            df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/keywords_with_schema.csv", index=False)
+        else:
+            df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/keywords.csv", index=False)
     
     # # query = "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?"
     # # query = "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?"

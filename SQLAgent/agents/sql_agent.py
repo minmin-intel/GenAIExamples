@@ -111,25 +111,31 @@ class QueryFixerNode:
         Table creation statements
         {DATABASE_SCHEMA}
         **************************
-        The original question is:
-        Question:
-        {QUESTION}
-        Evidence:
+        Hint:
         {HINT}
+        **************************
+        The original question:
+        {QUESTION}
+        **************************
+        Thought process of the SQL agent:
+        {THOUGHT}
+        **************************
         The SQL query executed was:
         {QUERY}
+        **************************
         The execution result:
         {RESULT}
         """
         print("----------Call Query Fixer Node----------")
         table_schema, _ = get_table_schema(self.args.db_name)
-        # question = state["messages"][0].content
+        question = state["messages"][0].content
         hint = state["hint"]
         query, result, thought = self.get_sql_query_and_result(state)
         response = self.chain.invoke(
             {
                 "DATABASE_SCHEMA": table_schema,
-                "QUESTION": thought,
+                "QUESTION": question,
+                "THOUGHT": thought,
                 "HINT": hint,
                 "QUERY": query,
                 "RESULT": result,
@@ -221,7 +227,7 @@ class AgentNodeWithHint:
         question = state["messages"][0].content
         table_schema, num_tables = get_table_schema(self.args.db_name)
         hints = state["hint"]
-        sysm = V13_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
+        sysm = V14_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
         _system_message = SystemMessage(content=sysm)
         state_modifier_runnable = RunnableLambda(
             lambda state: [_system_message] + state["messages"],
