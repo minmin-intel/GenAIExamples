@@ -35,6 +35,8 @@ def setup_tgi(args):
         "streaming": False,
     }
 
+    print(generation_params)
+
     llm = HuggingFaceEndpoint(
         endpoint_url=args.llm_endpoint_url,
         task="text-generation",
@@ -303,7 +305,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     tools = get_tools_sql_agent(args)
-    agent_node = AgentNode(args, tools)
+    agent_node = AgentNodeLlama(args, tools)
 
     query="What is the telephone number for the school with the lowest average score in reading in Southern California?"
     state = {
