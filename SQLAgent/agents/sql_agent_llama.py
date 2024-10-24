@@ -25,13 +25,20 @@ except:
 def setup_tgi(args):
     from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
+    generation_params = {
+        "max_new_tokens": args.max_new_tokens,
+        "top_k": args.top_k,
+        "top_p": args.top_p,
+        "temperature": args.temperature,
+        "repetition_penalty": args.repetition_penalty,
+        "return_full_text": False,
+        "streaming": False,
+    }
+
     llm = HuggingFaceEndpoint(
         endpoint_url=args.llm_endpoint_url,
         task="text-generation",
-        max_new_tokens=args.max_new_tokens,
-        do_sample=False,
-        streaming=False,
-        return_full_text=False
+        **generation_params,
     )
 
     chat_model = ChatHuggingFace(llm=llm, model_id=args.model)
@@ -288,6 +295,10 @@ if __name__ == "__main__":
     parser.add_argument("--db_name", type=str, default="california_schools")
     parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
     parser.add_argument("--max_new_tokens", type=int, default=8192)
+    parser.add_argument("--top_k", type=int, default=10)
+    parser.add_argument("--top_p", type=float, default=0.95)
+    parser.add_argument("--temperature", type=float, default=0.01)
+    parser.add_argument("--repetition_penalty", type=float, default=1.03)
 
     args = parser.parse_args()
 
