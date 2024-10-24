@@ -14,15 +14,13 @@ from langchain_community.utilities import SQLDatabase
 # from langgraph.checkpoint.memory import MemorySaver
 from sentence_transformers import SentenceTransformer
 try:
-    from .prompt import *
-    from .hint import generate_hints, generate_column_descriptions, pick_hints
-    from .hint import make_documents_from_column_descriptions, pick_hints_bm25
-    from .hint import generate_hints_given_keywords_list
+    from .prompt_llama import *
+    from .hint import generate_column_descriptions, pick_hints
+
 except:
-    from prompt import *
-    from hint import generate_hints, generate_column_descriptions, pick_hints
-    from hint import make_documents_from_column_descriptions, pick_hints_bm25
-    from hint import generate_hints_given_keywords_list
+    from prompt_llama import *
+    from hint import generate_column_descriptions, pick_hints
+
 
 def setup_tgi(args):
     from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
@@ -30,7 +28,7 @@ def setup_tgi(args):
     llm = HuggingFaceEndpoint(
         endpoint_url=args.llm_endpoint_url,
         task="text-generation",
-        max_new_tokens=128,
+        max_new_tokens=args.max_new_tokens,
         do_sample=False,
         streaming=False,
         return_full_text=False
@@ -38,6 +36,20 @@ def setup_tgi(args):
 
     chat_model = ChatHuggingFace(llm=llm, model_id=args.model)
     return chat_model
+
+def tool_renderer(tools):
+    tool_strings = []
+    for tool in tools:
+        description = f"{tool.name} - {tool.description}"
+
+        arg_schema = []
+        for k, tool_dict in tool.args.items():
+            k_type = tool_dict["type"] if "type" in tool_dict else ""
+            k_desc = tool_dict["description"] if "description" in tool_dict else ""
+            arg_schema.append(f"{k} ({k_type}): {k_desc}")
+
+        tool_strings.append(f"{description}, args: {arg_schema}")
+    return "\n".join(tool_strings)
 
 
 def get_table_schema(db_name):
@@ -58,6 +70,36 @@ class AgentState(TypedDict):
     is_last_step: IsLastStep
     hint: str
     
+class AgentNodeLlama:
+    def __init__(self, args, tools):
+        self.llm = setup_tgi(args)
+        self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
+        self.embed_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+        self.column_embeddings = self.embed_model.encode(self.values_descriptions)
+        self.args = args
+        self.tools = tools
+
+
+    def __call__(self, state):
+        print("----------Call Agent Node----------")
+        question = state["messages"][0].content
+        table_schema, num_tables = get_table_schema(self.args.db_name)
+        if not state["hint"]:
+            hints = pick_hints(question, self.embed_model,self.column_embeddings,self.cols_descriptions)
+        else:
+            hints = state["hint"]
+        prompt = AGENT_NODE_TEMPLATE.format(
+            domain=self.args.db_name,
+            tools = tool_renderer(self.tools),
+            num_tables=num_tables,
+            tables_schema=table_schema, 
+            question=question, 
+            hints=hints
+            )
+        
+        response = self.llm.invoke(prompt)
+        return {"messages": [response], "hint": hints}
+
 
 class AgentNode:
     def __init__(self, args, tools):
@@ -239,25 +281,41 @@ class SQLAgentWithQueryFixerLLAMA:
 if __name__ == "__main__":
     import argparse
     import pandas as pd
+    from tools import get_tools_sql_agent
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="meta-llama/Llama-3.1-70B-Instruct")
     parser.add_argument("--db_name", type=str, default="california_schools")
     parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
+    parser.add_argument("--max_new_tokens", type=int, default=8192)
 
     args = parser.parse_args()
 
-    df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
-    
-    for _, row in df.iterrows():
-        query = row["Query"]
-        print("Query: ", query)
-        state = {
+    tools = get_tools_sql_agent(args)
+    agent_node = AgentNode(args, tools)
+
+    query="What is the telephone number for the school with the lowest average score in reading in Southern California?"
+    state = {
             "messages": [HumanMessage(content=query)],
             "is_last_step": IsLastStep(False),
             "hint": ""
         }
-        
-        print("=="*20)
     
-    df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/test_results.csv", index=False)
+    print(agent_node(state))
+
+
+    # df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
+    
+    # for _, row in df.iterrows():
+    #     query = row["Query"]
+    #     print("Query: ", query)
+    #     state = {
+    #         "messages": [HumanMessage(content=query)],
+    #         "is_last_step": IsLastStep(False),
+    #         "hint": ""
+    #     }
+        
+    #     print("=="*20)
+    
+    # df.to_csv(f"{os.getenv('WORKDIR')}/sql_agent_output/test_results.csv", index=False)
     
