@@ -3,7 +3,7 @@ QUERYFILE=$WORKDIR/TAG-Bench/query_by_db/query_california_schools.csv
 OUTFOLDER=$WORKDIR/sql_agent_output
 KWFILE=$WORKDIR/sql_agent_output/keywords_hints_llam3.1-70b_noschema.csv
 
-ip_address=$(hostname -I | awk '{print $1}')
+ip_address=$host_ip #$(hostname -I | awk '{print $1}')
 LLM_ENDPOINT_URL="http://${ip_address}:8085"
 
 # MODEL="gpt-4o-mini-2024-07-18"
