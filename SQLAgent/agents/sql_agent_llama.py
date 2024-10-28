@@ -42,9 +42,9 @@ def setup_tgi(args):
         task="text-generation",
         **generation_params,
     )
-
-    chat_model = ChatHuggingFace(llm=llm, model_id=args.model)
-    return chat_model
+    return llm
+    # chat_model = ChatHuggingFace(llm=llm, model_id=args.model)
+    # return chat_model
 
 
 def setup_vllm_client(args):
@@ -320,24 +320,27 @@ if __name__ == "__main__":
     parser.add_argument("--top_p", type=float, default=0.95)
     parser.add_argument("--temperature", type=float, default=0.01)
     parser.add_argument("--repetition_penalty", type=float, default=1.03)
+    parser.add_argument("--tgi_llama", action="store_true")
+    parser.add_argument("--vllm", action="store_true")
 
     args = parser.parse_args()
 
-    # llm = setup_tgi(args)
-    llm = setup_vllm_client(args)
-    llm.invoke("Tell me about Socrates. Give me a long answer.")
+    llm = setup_tgi(args)
+    # llm = setup_vllm_client(args)
+    # print(llm.invoke("Tell me about Socrates. Give me a long answer."))
 
-    # tools = get_tools_sql_agent(args)
-    # agent_node = AgentNodeLlama(args, tools)
 
-    # query="What is the telephone number for the school with the lowest average score in reading in Southern California?"
-    # state = {
-    #         "messages": [HumanMessage(content=query)],
-    #         "is_last_step": IsLastStep(False),
-    #         "hint": ""
-    #     }
+    tools = get_tools_sql_agent(args)
+    agent_node = AgentNodeLlama(args, tools)
+
+    query="What is the telephone number for the school with the lowest average score in reading in Southern California?"
+    state = {
+            "messages": [HumanMessage(content=query)],
+            "is_last_step": IsLastStep(False),
+            "hint": ""
+        }
     
-    # print(agent_node(state))
+    print(agent_node(state))
 
 
     # df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
