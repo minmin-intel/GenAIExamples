@@ -46,6 +46,20 @@ def setup_tgi(args):
     chat_model = ChatHuggingFace(llm=llm, model_id=args.model)
     return chat_model
 
+
+def setup_vllm_client(args):
+    from langchain_openai import ChatOpenAI
+
+    openai_endpoint = f"{args.llm_endpoint_url}/v1"
+    params = {
+        "temperature": args.temperature,
+        "max_tokens": args.max_new_tokens,
+        "streaming": args.streaming,
+    }
+    llm = ChatOpenAI(openai_api_key="EMPTY", openai_api_base=openai_endpoint, model_name=args.model, **params)
+    return llm
+
+
 def tool_renderer(tools):
     tool_strings = []
     for tool in tools:
@@ -81,7 +95,12 @@ class AgentState(TypedDict):
     
 class AgentNodeLlama:
     def __init__(self, args, tools):
-        self.llm = setup_tgi(args)
+        if args.tgi_llama:
+            self.llm = setup_tgi(args)
+        elif args.vllm:
+            self.llm = setup_vllm_client(args)
+        else:
+            raise ValueError("Please specify the LLM type")
         self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
         self.embed_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
         self.column_embeddings = self.embed_model.encode(self.values_descriptions)
@@ -304,17 +323,21 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    tools = get_tools_sql_agent(args)
-    agent_node = AgentNodeLlama(args, tools)
+    # llm = setup_tgi(args)
+    llm = setup_vllm_client(args)
+    llm.invoke("Tell me about Socrates. Give me a long answer.")
 
-    query="What is the telephone number for the school with the lowest average score in reading in Southern California?"
-    state = {
-            "messages": [HumanMessage(content=query)],
-            "is_last_step": IsLastStep(False),
-            "hint": ""
-        }
+    # tools = get_tools_sql_agent(args)
+    # agent_node = AgentNodeLlama(args, tools)
+
+    # query="What is the telephone number for the school with the lowest average score in reading in Southern California?"
+    # state = {
+    #         "messages": [HumanMessage(content=query)],
+    #         "is_last_step": IsLastStep(False),
+    #         "hint": ""
+    #     }
     
-    print(agent_node(state))
+    # print(agent_node(state))
 
 
     # df = pd.read_csv(f"{os.getenv('WORKDIR')}/TAG-Bench/query_by_db/query_california_schools.csv")
