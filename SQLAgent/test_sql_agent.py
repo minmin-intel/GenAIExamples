@@ -27,6 +27,11 @@ def get_args():
     parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
     parser.add_argument("--tgi_llama", action="store_true")
     parser.add_argument("--sql_llama", action="store_true")
+    parser.add_argument("--max_new_tokens", type=int, default=8192)
+    parser.add_argument("--top_k", type=int, default=10)
+    parser.add_argument("--top_p", type=float, default=0.95)
+    parser.add_argument("--temperature", type=float, default=0.01)
+    parser.add_argument("--repetition_penalty", type=float, default=1.03)
     args = parser.parse_args()
     return args
 
@@ -109,7 +114,7 @@ def save_json_lines(json_lines, args):
 
 if __name__ == "__main__":
     args = get_args()
-    if not args.tgi_llama:
+    if not args.sql_llama:
         llm = ChatOpenAI(model=args.model, temperature=0)
     if args.multiagent:
         from agents.tools import search_web
@@ -204,7 +209,7 @@ if __name__ == "__main__":
     for _, row in df.iterrows():
         query = row["Query"]
         ref_answer = row["Answer"]
-        if args.critic or args.sql_agent or args.sql_agent_fixer or args.sql_agent_hint_fixer:
+        if args.critic or args.sql_agent or args.sql_agent_fixer or args.sql_agent_hint_fixer or args.sql_llama:
             input = agent.prepare_initial_state(query)
         else:
             input = {"messages": [HumanMessage(content=query)]}

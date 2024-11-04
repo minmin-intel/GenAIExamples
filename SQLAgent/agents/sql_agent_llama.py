@@ -15,13 +15,13 @@ from sentence_transformers import SentenceTransformer
 try:
     from .prompt_llama import *
     from .hint import generate_column_descriptions, pick_hints
-    from .utils import convert_json_to_tool_call
+    from .utils import convert_json_to_tool_call, assemble_history
     from .utils import LlamaOutputParser
 
 except:
     from prompt_llama import *
     from hint import generate_column_descriptions, pick_hints
-    from utils import convert_json_to_tool_call
+    from utils import convert_json_to_tool_call, assemble_history
     from utils import LlamaOutputParser
 
 
@@ -95,6 +95,7 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     is_last_step: IsLastStep
     hint: str
+    feedback: str
     
 class AgentNodeLlama:
     def __init__(self, args, tools):
@@ -119,8 +120,10 @@ class AgentNodeLlama:
             hints = pick_hints(question, self.embed_model,self.column_embeddings,self.cols_descriptions)
         else:
             hints = state["hint"]
-        history = ""
-        feedback = ""
+        history = assemble_history(state["messages"])
+        print("@@@ History: ", history)
+        feedback = state["feedback"]
+        print("@@@ Feedback: ", feedback)
         prompt = AGENT_NODE_TEMPLATE.format(
             domain=self.args.db_name,
             tools = self.tools,
@@ -215,8 +218,8 @@ class QueryFixerNode:
                 "RESULT": result,
             }
         )
-        print("@@@@@ Query fixer output:\n", response.content)
-        return {"messages": [response]}
+        print("@@@@@ Query fixer output:\n", response)
+        return {"feedback": response}
 
 class SQLAgentWithQueryFixerLLAMA:
     """
@@ -326,7 +329,8 @@ if __name__ == "__main__":
     state = {
             "messages": [HumanMessage(content=query)],
             "is_last_step": IsLastStep(False),
-            "hint": ""
+            "hint": "",
+            "feedback": ""
         }
     
     print(agent_node(state))

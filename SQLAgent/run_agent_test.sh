@@ -16,6 +16,5 @@ python3 test_sql_agent.py \
 --model $MODEL \
 --debug \
 --kw_file $KWFILE \
---sql_llama \
 --llm_endpoint_url $LLM_ENDPOINT_URL \
---sql_agent_fixer | tee $OUTFOLDER/llama_test_log.txt
+--sql_llama | tee $OUTFOLDER/llama_test_log.txt
