@@ -298,7 +298,7 @@ class SQLAgentWithQueryFixerLLAMA:
             return "false"
     
     def prepare_initial_state(self, query):
-        return {"messages": [HumanMessage(content=query)], "is_last_step": IsLastStep(False), "hint": ""}
+        return {"messages": [HumanMessage(content=query)], "is_last_step": IsLastStep(False), "hint": "", "feedback": ""}
 
 
 

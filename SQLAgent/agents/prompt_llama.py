@@ -92,5 +92,5 @@ The SQL query executed was:
 The execution result:
 {RESULT}
 **************************
-Based on the question, table schema, hint and the previous query, analyze the result. Fix the query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer.
+Now follow the procedure and analyze the executed SQL query. Fix the SQL query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer. Do not comment on the text formatting.
 """
