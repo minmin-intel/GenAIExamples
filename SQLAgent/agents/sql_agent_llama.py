@@ -148,7 +148,7 @@ class AgentNodeLlama:
         elif "answer" in output[0]:
             ai_message = AIMessage(content=str(output[0]["answer"]))
         else:
-            ai_message = AIMessage(content=output)
+            ai_message = AIMessage(content=str(output))
         
         return {"messages": [ai_message], "hint": hints}
 
