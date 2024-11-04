@@ -26,6 +26,7 @@ def get_args():
     parser.add_argument("--model", type=str, default="meta-llama/Llama-3.1-70B-Instruct")
     parser.add_argument("--llm_endpoint_url", type=str, default="http://localhost:8085")
     parser.add_argument("--tgi_llama", action="store_true")
+    parser.add_argument("--sql_llama", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -117,7 +118,7 @@ if __name__ == "__main__":
     elif args.critic:
         tools = get_tools(args, llm)
         system_message = SystemMessage(content=V7_SYSM)
-    elif args.sql_agent:
+    elif args.sql_agent or args.sql_llama:
         from agents.tools import get_tools_sql_agent
         tools = get_tools_sql_agent(args)
     elif args.hier_sql_agent:
@@ -162,16 +163,15 @@ if __name__ == "__main__":
         agent = SQLAgent(args, tools)
         agent_executor = agent.app
     elif args.sql_agent_fixer:
-        if args.tgi_llama:
-            print("========Initializing SQLAgentWithQueryFixer with LLAMA-3.1-70B-instruct ========")
-            from agents.sql_agent_llama import SQLAgentWithQueryFixerLLAMA
-            agent = SQLAgentWithQueryFixerLLAMA(args, tools)
-            agent_executor = agent.app
-        else:
-            print("========Initializing SQLAgentWithQueryFixer with GPT-4o-mini ========")
-            from agents.sql_agent import SQLAgentWithQueryFixer
-            agent = SQLAgentWithQueryFixer(args, tools)
-            agent_executor = agent.app
+        print("========Initializing SQLAgentWithQueryFixer with GPT-4o-mini ========")
+        from agents.sql_agent import SQLAgentWithQueryFixer
+        agent = SQLAgentWithQueryFixer(args, tools)
+        agent_executor = agent.app
+    elif args.sql_llama:
+        print("========Initializing SQLAgentWithQueryFixer with LLAMA-3.1-70B-instruct ========")
+        from agents.sql_agent_llama import SQLAgentWithQueryFixerLLAMA
+        agent = SQLAgentWithQueryFixerLLAMA(args, tools)
+        agent_executor = agent.app
     elif args.sql_agent_hint_fixer:
         from agents.sql_agent import SQLAgentWithHintAndQueryFixer
         agent = SQLAgentWithHintAndQueryFixer(args, tools)

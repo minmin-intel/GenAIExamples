@@ -10,13 +10,14 @@ class LlamaOutputParser(BaseOutputParser):
         json_lines = text.split("\n")
         output = []
         for line in json_lines:
+            
+            if "TOOL CALL:" in line:
+                line = line.replace("TOOL CALL:", "")
+            if "FINAL ANSWER:" in line:
+                line = line.replace("FINAL ANSWER:", "")
+            if "assistant" in line:
+                line = line.replace("assistant", "")
             try:
-                if "TOOL CALL:" in line:
-                    line = line.replace("TOOL CALL:", "")
-                if "FINAL ANSWER:" in line:
-                    line = line.replace("FINAL ANSWER:", "")
-                if "assistant" in line:
-                    line = line.replace("assistant", "")
                 parsed_line = json.loads(line)
                 if isinstance(parsed_line, dict):
                     if "tool" in parsed_line or "answer" in parsed_line:
@@ -25,7 +26,17 @@ class LlamaOutputParser(BaseOutputParser):
                     else:
                         print("Parsed line is not a tool call or answer: ", parsed_line)
             except Exception as e:
-                print("Exception happened in output parsing: ", str(e))
+                if "\\" in line:
+                    line = line.replace("\\", "")
+                    parsed_line = json.loads(line)
+                    if isinstance(parsed_line, dict):
+                        if "tool" in parsed_line or "answer" in parsed_line:
+                            print("parsed line: ", parsed_line)
+                            output.append(parsed_line)
+                        else:
+                            print("Parsed line is not a tool call or answer: ", parsed_line)
+                else:                
+                    print("Exception happened in output parsing: ", str(e))
         if output:
             return output
         else:

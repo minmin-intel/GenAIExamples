@@ -57,7 +57,7 @@ def setup_chat_model(args):
     params = {
         "temperature": args.temperature,
         "max_tokens": args.max_new_tokens,
-        "streaming": args.streaming,
+        "streaming": False,
     }
     llm = ChatOpenAI(openai_api_key="EMPTY", openai_api_base=openai_endpoint, model_name=args.model, **params)
     return llm
@@ -139,12 +139,12 @@ class AgentNodeLlama:
         tool_calls = []
         for res in output:
             if "tool" in res:
-                add_kw_tc, tool_call = convert_json_to_tool_call(res)
+                tool_call = convert_json_to_tool_call(res)
                 # print("Tool call:\n", tool_call)
                 tool_calls.append(tool_call)
 
         if tool_calls:
-            ai_message = AIMessage(content="", additional_kwargs=add_kw_tc, tool_calls=tool_calls)
+            ai_message = AIMessage(content="", tool_calls=tool_calls)
         elif "answer" in output[0]:
             ai_message = AIMessage(content=str(output[0]["answer"]))
         else:
@@ -317,10 +317,6 @@ if __name__ == "__main__":
     parser.add_argument("--vllm", action="store_true")
 
     args = parser.parse_args()
-
-    llm = setup_tgi(args)
-    # llm = setup_vllm_client(args)
-    # print(llm.invoke("Tell me about Socrates. Give me a long answer."))
 
 
     tools = get_tools_sql_agent(args)
