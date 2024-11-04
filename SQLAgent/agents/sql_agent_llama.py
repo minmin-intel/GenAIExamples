@@ -10,16 +10,19 @@ from langgraph.graph.message import add_messages
 from langgraph.managed import IsLastStep
 from langgraph.prebuilt import ToolNode
 from langchain_community.utilities import SQLDatabase
-# from langchain_community.retrievers import BM25Retriever
-# from langgraph.checkpoint.memory import MemorySaver
+
 from sentence_transformers import SentenceTransformer
 try:
     from .prompt_llama import *
     from .hint import generate_column_descriptions, pick_hints
+    from .utils import convert_json_to_tool_call
+    from .utils import LlamaOutputParser
 
 except:
     from prompt_llama import *
     from hint import generate_column_descriptions, pick_hints
+    from utils import convert_json_to_tool_call
+    from utils import LlamaOutputParser
 
 
 def setup_tgi(args):
@@ -47,7 +50,7 @@ def setup_tgi(args):
     # return chat_model
 
 
-def setup_vllm_client(args):
+def setup_chat_model(args):
     from langchain_openai import ChatOpenAI
 
     openai_endpoint = f"{args.llm_endpoint_url}/v1"
@@ -95,17 +98,17 @@ class AgentState(TypedDict):
     
 class AgentNodeLlama:
     def __init__(self, args, tools):
-        if args.tgi_llama:
-            self.llm = setup_tgi(args)
-        elif args.vllm:
-            self.llm = setup_vllm_client(args)
-        else:
-            raise ValueError("Please specify the LLM type")
+        llm = setup_chat_model(args)
+        self.args = args
+        self.tools = tool_renderer(tools)
+        output_parser=LlamaOutputParser()
+        self.chain= llm | output_parser
+
+        # for generating hints
         self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
         self.embed_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
         self.column_embeddings = self.embed_model.encode(self.values_descriptions)
-        self.args = args
-        self.tools = tools
+        
 
 
     def __call__(self, state):
@@ -116,48 +119,39 @@ class AgentNodeLlama:
             hints = pick_hints(question, self.embed_model,self.column_embeddings,self.cols_descriptions)
         else:
             hints = state["hint"]
+        history = ""
+        feedback = ""
         prompt = AGENT_NODE_TEMPLATE.format(
             domain=self.args.db_name,
-            tools = tool_renderer(self.tools),
+            tools = self.tools,
             num_tables=num_tables,
             tables_schema=table_schema, 
             question=question, 
-            hints=hints
+            hints=hints,
+            history=history,
+            feedback=feedback
             )
         
-        response = self.llm.invoke(prompt)
-        return {"messages": [response], "hint": hints}
+        output = self.chain.invoke(prompt)
+        print("@@@@@ Agent output:\n", output)
 
+        # convert output to tool calls
+        tool_calls = []
+        for res in output:
+            if "tool" in res:
+                add_kw_tc, tool_call = convert_json_to_tool_call(res)
+                # print("Tool call:\n", tool_call)
+                tool_calls.append(tool_call)
 
-class AgentNode:
-    def __init__(self, args, tools):
-        self.llm = setup_tgi(args).bind_tools(tools)
-        self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
-        self.embed_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
-        self.column_embeddings = self.embed_model.encode(self.values_descriptions)
-        self.args = args
-
-
-    def __call__(self, state):
-        print("----------Call Agent Node----------")
-        question = state["messages"][0].content
-        table_schema, num_tables = get_table_schema(self.args.db_name)
-        if not state["hint"]:
-            hints = pick_hints(question, self.embed_model,self.column_embeddings,self.cols_descriptions)
+        if tool_calls:
+            ai_message = AIMessage(content="", additional_kwargs=add_kw_tc, tool_calls=tool_calls)
+        elif "answer" in output[0]:
+            ai_message = AIMessage(content=str(output[0]["answer"]))
         else:
-            hints = state["hint"]
-        sysm = V13_SYSM.format(num_tables=num_tables,tables_schema=table_schema, question=question, hints=hints)
-        _system_message = SystemMessage(content=sysm)
-        state_modifier_runnable = RunnableLambda(
-            lambda state: [_system_message] + state["messages"],
-            name="StateModifier",
-        )
-        # print(state_modifier_runnable.invoke(state))
-        chain = state_modifier_runnable | self.llm
-        response = chain.invoke(state)
-        # print("===========")
-        # print(response)
-        return {"messages": [response], "hint": hints}
+            ai_message = AIMessage(content=output)
+        
+        return {"messages": [ai_message], "hint": hints}
+
 
 
 class QueryFixerNode:
@@ -216,13 +210,12 @@ class QueryFixerNode:
             {
                 "DATABASE_SCHEMA": table_schema,
                 "QUESTION": question,
-                # "THOUGHT": thought,
                 "HINT": hint,
                 "QUERY": query,
                 "RESULT": result,
             }
         )
-        # print("@@@@@ Query fixer output:\n", response.content)
+        print("@@@@@ Query fixer output:\n", response.content)
         return {"messages": [response]}
 
 class SQLAgentWithQueryFixerLLAMA:
@@ -230,7 +223,7 @@ class SQLAgentWithQueryFixerLLAMA:
     can only have one tool - sql_db_query tool
     """
     def __init__(self, args, tools):
-        agent = AgentNode(args, tools)
+        agent = AgentNodeLlama(args, tools)
         query_fixer = QueryFixerNode(args)
         tool_node = ToolNode(tools)
 
