@@ -69,11 +69,11 @@ You are an SQL database expert tasked with reviewing a SQL query.
 3. Analyze Query Requirements:
 - Original Question: Consider what information the query is supposed to retrieve.
 - Executed SQL Query: Review the SQL query that was previously executed.
-- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. If the result does not make sense, identify the issues with the executed SQL query (e.g., null values, syntax
-errors, incorrect table references, incorrect column references, logical mistakes).
+- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. If the result does not make sense, identify the issues with the executed SQL query (e.g., null values, syntax errors, incorrect table references, incorrect column references, logical mistakes).
 4. Correct the Query if Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data
 according to the database schema and query requirements.
+- Common issues include failing to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes
 5. If the query is correct, provide the same query as the final answer.
 
 ======= Your task =======
@@ -92,5 +92,5 @@ The SQL query executed was:
 The execution result:
 {RESULT}
 **************************
-Now follow the procedure and analyze the executed SQL query. Fix the SQL query if needed and provide your reasoning. If the query is correct, provide the same query as the final answer. Do not comment on the text formatting.
+Now follow analyze the executed SQL query step by step. Present your reasonings. Fix the SQL query if any issues were identified. If the query is correct, make your conclusion after your analysis. Do not comment on the text formatting.
 """
