@@ -2,7 +2,7 @@ import uuid
 import json
 from langchain_core.messages.tool import ToolCall
 from langchain_core.output_parsers import BaseOutputParser
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
 
 
 def parse_sql_query(line):
@@ -24,14 +24,17 @@ def get_sql_query_from_output(output):
     ```
     There may be multiple such instances. Only get the last one.
     """
-    query = output.split("```sql")[-1].split("```")[0]
-    return query
+    if "```sql" not in output:
+        return None
+    else:
+        query = output.split("```sql")[-1].split("```")[0]
+        return query
 
 
 
 class LlamaOutputParser(BaseOutputParser):
     def parse(self, text: str):
-        # print("raw output from llm: ", text)
+        print("@@@ Raw output from llm:\n", text)
         json_lines = text.split("\n")
         output = []
         for line in json_lines:
@@ -109,6 +112,39 @@ def assemble_history(messages):
                     id = tool_call["id"]
                     tool_output = get_tool_output(messages, id)
                     query_history += f"Tool Call: {tool} - {tc_args}\nTool Output: {tool_output}\n{breaker}\n"
+            else:
+                # did not make tool calls
+                query_history += f"Assistant Output: {m.content}\n"
+
+    return query_history
+
+
+def assemble_history_with_feedback(messages):
+    """
+    messages: AI, TOOL, HUMAN, AI, TOOL, HUMAN, etc.
+    """
+    query_history = ""
+    breaker = "-" * 10
+    for m in messages[1:]:  # exclude the first message
+        if isinstance(m, AIMessage):
+            # if there is tool call
+            if hasattr(m, "tool_calls") and len(m.tool_calls) > 0:
+                for tool_call in m.tool_calls:
+                    tool = tool_call["name"]
+                    tc_args = tool_call["args"]
+                    id = tool_call["id"]
+                    tool_output = get_tool_output(messages, id)
+                    if tool == "sql_db_query":
+                        # get feedback, the first human message after the tool call
+                        feedback = ""
+                        for i in range(messages.index(m), len(messages)):
+                            if isinstance(messages[i], HumanMessage):
+                                feedback = messages[i].content
+                                break
+
+                        query_history += f"Executed SQL query: {tc_args}\nResult: {tool_output}\nReview of SQL query: {feedback}\n{breaker}\n"
+                    else:
+                        query_history += f"Called tool: {tool} - {tc_args}\nTool Output: {tool_output}\n{breaker}\n"
             else:
                 # did not make tool calls
                 query_history += f"Assistant Output: {m.content}\n"

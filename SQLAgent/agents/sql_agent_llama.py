@@ -15,13 +15,13 @@ from sentence_transformers import SentenceTransformer
 try:
     from .prompt_llama import *
     from .hint import generate_column_descriptions, pick_hints
-    from .utils import convert_json_to_tool_call, assemble_history
+    from .utils import convert_json_to_tool_call, assemble_history_with_feedback
     from .utils import LlamaOutputParser
 
 except:
     from prompt_llama import *
     from hint import generate_column_descriptions, pick_hints
-    from utils import convert_json_to_tool_call, assemble_history
+    from utils import convert_json_to_tool_call, assemble_history_with_feedback
     from utils import LlamaOutputParser
 
 
@@ -121,10 +121,10 @@ class AgentNodeLlama:
         else:
             hints = state["hint"]
         print("@@@ Hints: ", hints)
-        history = assemble_history(state["messages"])
+        history = assemble_history_with_feedback(state["messages"])
         print("@@@ History: ", history)
-        feedback = state["feedback"]
-        print("@@@ Feedback: ", feedback)
+        # feedback = state["feedback"]
+        # print("@@@ Feedback: ", feedback)
         prompt = AGENT_NODE_TEMPLATE.format(
             domain=self.args.db_name,
             tools = self.tools,
@@ -133,7 +133,7 @@ class AgentNodeLlama:
             question=question, 
             hints=hints,
             history=history,
-            feedback=feedback
+            # feedback=feedback
             )
         
         output = self.chain.invoke(prompt)
@@ -217,7 +217,8 @@ class QueryFixerNode:
             }
         )
         print("@@@@@ Query fixer output:\n", response)
-        return {"feedback": response}
+        msg = HumanMessage(content=response)
+        return {"messages":[msg],"feedback": response}
 
 class SQLAgentWithQueryFixerLLAMA:
     """
