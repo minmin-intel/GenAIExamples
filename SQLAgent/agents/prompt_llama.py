@@ -111,8 +111,12 @@ You have the following tools to gather information:
 3. Review the hints provided.
 - Use the relevant hints to help you solve the problem.
 4. Read the Execution History carefully if any to understand what has been done in the previous steps.
+- Check to see if an answer can be made based on the information gathered so far.
+- Provide your answer if you can.
+- If you cannot answer the question, make more tool calls.
 5. Review the feedback from the SQL query reviewer if any and correct your SQL query if needed.
-6. Reason about the information gathered so far and decide if you can answer the question or if you need to make more tool calls.
+6. After thinking through, proceed to provide your answer or make a tool call.
+
 
 ======= Your task =======
 **************************
@@ -145,9 +149,8 @@ IMPORTANT:
 
 **Output format:**
 You should output your thought process. Finish thinking first. Output the tool call or your answer at the end.
-You must use the following format for making a tool call. ONLY make ONE tool call at a time.
-TOOL CALL: {{"tool": "sql_db_query", "args": {{"query": "your query here"}}}}
-TOOL CALL: {{"tool": "tool2", "args": {{"arg1": "value1", "arg2": "value2", ...}}}}
+You must use the following format for making a tool call. Make one tool call at a time.
+TOOL CALL: {{"tool": "tool1", "args": {{"arg1": "value1", "arg2": "value2", ...}}}}
 
 If you can answer the question, provide the answer in the following format:
 FINAL ANSWER: Your answer here.
