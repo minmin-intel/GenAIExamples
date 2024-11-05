@@ -185,7 +185,7 @@ if __name__ == "__main__":
         print(f"Creating agent with tools {tools} and sysm {system_message}....")
         agent_executor = create_react_agent(llm, tools, state_modifier=system_message)
 
-    # df = pd.read_csv(args.query_file)
+    df = pd.read_csv(args.query_file)
     
     query= [
         "What is the telephone number for the school with the lowest average score in reading in Southern California?",
@@ -199,9 +199,9 @@ if __name__ == "__main__":
         # "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual.",
         # "List the cities containing the top 5 most enrolled schools in order from most diverse to least diverse. ",
         ]
-    df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
+    #df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
-    recursion_limit = 15
+    recursion_limit = 25
     results = []
     traces = []
     num_llm_calls = []
@@ -232,8 +232,8 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    outfile = args.query_file.split("/")[-1].replace("query", "llama_test_result_{}".format(args.model))
-    
+    # outfile = args.query_file.split("/")[-1].replace("query", "llama_test_result_{}".format(args.model))
+    outfile = "v2_test_results_llama.csv"
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
     print("Results saved to: ", os.path.join(args.output, outfile))

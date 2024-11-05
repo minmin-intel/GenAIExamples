@@ -120,6 +120,7 @@ class AgentNodeLlama:
             hints = pick_hints(question, self.embed_model,self.column_embeddings,self.cols_descriptions)
         else:
             hints = state["hint"]
+        print("@@@ Hints: ", hints)
         history = assemble_history(state["messages"])
         print("@@@ History: ", history)
         feedback = state["feedback"]
@@ -143,7 +144,6 @@ class AgentNodeLlama:
         for res in output:
             if "tool" in res:
                 tool_call = convert_json_to_tool_call(res)
-                # print("Tool call:\n", tool_call)
                 tool_calls.append(tool_call)
 
         if tool_calls:
@@ -161,7 +161,7 @@ class QueryFixerNode:
     def __init__(self, args):
         llm = setup_tgi(args)
         prompt = PromptTemplate(
-            template=QUERYFIXER_PROMPT_v3,
+            template=QUERYFIXER_PROMPT_v4,
             input_variables=["DATABASE_SCHEMA", "QUESTION", "HINT", "QUERY", "RESULT"],
         )
         self.chain = prompt | llm
@@ -172,8 +172,6 @@ class QueryFixerNode:
         assert isinstance(messages[-1], ToolMessage), "The last message should be a tool message"
         result = messages[-1].content
         id = messages[-1].tool_call_id
-        # assert isinstance(messages[-2], AIMessage), "The second last message should be AI message with tool call"
-        # query = messages[-2].tool_calls[0]["args"]["query"]
         query = ""
         question = ""
         for msg in reversed(messages):
