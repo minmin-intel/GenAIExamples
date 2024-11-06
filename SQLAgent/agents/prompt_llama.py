@@ -190,10 +190,15 @@ IMPORTANT:
 * If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box. You hard work will be rewarded.
 
 **Output format:**
-You must use the following format for making a tool call. Make ONLY one tool call at a time.
+1. Write down your thinking process.
+2. You must output your SQL query in the following format:
+```sql
+SELECT column1, column2, ...
+```
+3. You must use the following format for making a tool call. Make ONLY one tool call at a time.
 TOOL CALL: {{"tool": "tool1", "args": {{"arg1": "value1", "arg2": "value2", ...}}}}
 
-If you can answer the question, provide the answer in the following format:
+4. If you can answer the question, provide the answer in the following format:
 FINAL ANSWER: Your answer here.
 
 Now take a deep breath and think step by step to solve the problem.

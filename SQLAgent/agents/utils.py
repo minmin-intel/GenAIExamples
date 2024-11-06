@@ -30,9 +30,55 @@ def get_sql_query_from_output(output):
         query = output.split("```sql")[-1].split("```")[0]
         return query
 
-
+def get_tool_calls_other_than_sql(text):
+    """
+    get the tool calls other than sql_db_query
+    """
+    tool_calls = []
+    json_lines = text.split("\n")
+    for line in json_lines:
+        if "TOOL CALL:" in line:
+            if "sql_db_query" not in line:
+                line = line.replace("TOOL CALL:", "")
+                try:
+                    parsed_line = json.loads(line)
+                    if isinstance(parsed_line, dict):
+                        if "tool" in parsed_line:
+                            tool_calls.append(parsed_line)
+                
+                except:
+                    pass
+    return tool_calls
 
 class LlamaOutputParser(BaseOutputParser):
+    """
+    Assumptions:
+    1. the final sql query is the query that agent wants to execute.
+    2. If making a tool call, the agent still not sure about answer, so even though FINAL ANSWER is in text, it should be ignored.
+    3. If other tools like search_web, etc. are called together with sql query tool, the other tools should take priority over sql_db_query, to first gather related info first.
+    """
+    def parse(self, text: str):
+        print("@@@ Raw output from llm:\n", text)
+
+        # first try to get tool call in format: TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT ..."}}
+        tool_calls = get_tool_calls_other_than_sql(text)
+        if tool_calls:
+            return tool_calls
+        else:
+            # try to get sql query
+            sql_query = get_sql_query_from_output(text)
+            if sql_query:
+                return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+            else:
+                # try to get answer
+                if "FINAL ANSWER:" in text:
+                    return [{"answer": text.split("FINAL ANSWER:")[-1]}]
+                else:
+                    return text
+        
+
+
+class LlamaOutputParserV1(BaseOutputParser):
     def parse(self, text: str):
         print("@@@ Raw output from llm:\n", text)
         json_lines = text.split("\n")
@@ -175,7 +221,11 @@ if __name__ == "__main__":
     To answer this question, we need to find the schools in the Bay Area with an average score in Math over 560 in the SAT test. 
 
 First, we need to identify the schools in the Bay Area. The Bay Area includes several counties, including Alameda, Contra Costa, Marin, Napa, San Francisco, San Mateo, Santa Clara, Solano, and Sonoma. We can use the `schools` table to find the schools in these counties.
+First, we need to find the counties with a population over 2 million. However, the provided database schema does not contain information about the population of counties. Therefore, we will use the web search tool to find the counties in California with a population over 2 million.
 
+TOOL CALL: {"tool": "search_web", "args": {"query": "counties in California with population over 2 million"}}
+
+After finding the counties with a population over 2 million, we will use the database to find the number of test takers at schools in those counties. We can do this by joining the 'satscores' table with the 'schools' table on the 'CDSCode' column, and then filtering the results to only include schools in the counties we found earlier.
 Next, we need to find the schools with an average score in Math over 560 in the SAT test. We can use the `satscores` table to find this information.
 
 Here's a SQL query that combines the information from both tables:
@@ -192,12 +242,12 @@ AND T2.AvgScrMath > 560
 This query joins the `schools` table with the `satscores` table on the `CDSCode` column, which is common to both tables. It then selects the schools in the Bay Area counties and with an average score in Math over 560.
 
 Let's execute this query to get the answer.
-
+TOOL CALL: {"tool": "search_web", "args": {"query": "Search again counties in California with population over 2 million"}}
 TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT COUNT(T1.CDSCode) FROM schools AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T1.County IN (\'Alameda\', \'Contra Costa\', \'Marin\', \'Napa\', \'San Francisco\', \'San Mateo\', \'Santa Clara\', \'Solano\', \'Sonoma\') AND T2.AvgScrMath > 560"}}
     """
 
 
-    #passed
+#     #passed
     text = """\
 To answer this question, we need to find the school with the lowest average score in reading in Southern California and then retrieve its telephone number.
 
@@ -260,9 +310,11 @@ FINAL ANSWER: The schools in Riverside where the average math score for SAT is g
     """
     parser = LlamaOutputParser()
     output = parser.parse(text)
-    print(output)
-    if "tool" in output[0] and output[0]["tool"] == "sql_db_query":
-        print("Query db....")
-        print(db_query_tool.invoke({"query":output[0]["args"]["query"]}))
-    else:
-        print("Final answer: ", output[0]["answer"])    
+    # print(output)
+    for x in output:
+        if "tool" in x and x["tool"] == "sql_db_query":
+            print("Query db....")
+            print(db_query_tool.invoke({"query":x["args"]["query"]}))
+        else:
+            print(x)
+     
