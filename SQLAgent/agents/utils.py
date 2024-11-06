@@ -193,7 +193,7 @@ def assemble_history_with_feedback(messages):
                                 feedback = messages[i].content
                                 break
 
-                        query_history += f"Executed SQL query: {tc_args}\nResult: {tool_output}\nReview of SQL query: {feedback}\n{breaker}\n"
+                        query_history += f"Executed SQL query: {tc_args}\nQuery Result: {tool_output}\nReview of SQL query: {feedback}\n{breaker}\n"
                     else:
                         query_history += f"Called tool: {tool} - {tc_args}\nTool Output: {tool_output}\n{breaker}\n"
             else:

@@ -193,6 +193,7 @@ FINAL ANSWER: Your answer here.
 **IMPORTANT:**
 * Review your previous steps carefully and utilize them to answer the question.
 * If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way.
+* Do not repeat your previous steps.
 
 Now take a deep breath and think step by step to answeer the following question.
 Question:
