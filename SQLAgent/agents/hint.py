@@ -41,8 +41,9 @@ def generate_column_descriptions(db_name):
                 else:            
                     description = description.replace("\n", " ")
                     description = " ".join(description.split())
-                    output.append(f"{table_name}.{col_name}: {description}\n")
-                    decriptions_only.append(description)
+                    output.append(f"{table_name}.{col_name}: {description}")
+                    # decriptions_only.append(description)
+                    decriptions_only.append(f"{col_name}: {description}")
     # print("Output:\n", output)
     return output, decriptions_only
 
@@ -147,8 +148,9 @@ if __name__ == "__main__":
     # print(hints)
 
     # # similarity
-    model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+    model = SentenceTransformer('BAAI/bge-large-en-v1.5')
     column_embeddings = model.encode(cols_descriptions)
+    # column_embeddings = model.encode(complete_descriptions)
     # query = "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual."
     # query = "continuation schools" #eligible free rates, overall affordability
     # query_list = ["continuation schools", "eligible free rates", "overall affordability"]
@@ -163,12 +165,12 @@ if __name__ == "__main__":
     # for hint in hints_set:
     #     print('Final hint:\n', hint)
     working_dir = os.getenv("WORKDIR")
-    # df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
-    df = pd.read_csv(f"{working_dir}/sql_agent_output/query_rewrite.csv")
+    df = pd.read_csv(f"{working_dir}/TAG-Bench/query_by_db/query_california_schools.csv")
+    # df = pd.read_csv(f"{working_dir}/sql_agent_output/query_rewrite.csv")
     hint_cols = []
     for _, row in df.iterrows():
-        # query = row["Query"]
-        query = row["rewrite"]
+        query = row["Query"]
+        # query = row["rewrite"]
         hint = pick_hints(query, model, column_embeddings, complete_descriptions)
         print("Query: ", query)
         # keywords = row["keywords"]
@@ -178,4 +180,4 @@ if __name__ == "__main__":
         print("=="*20)
         hint_cols.append(hint)
     df["hints"] = hint_cols
-    df.to_csv(f"{working_dir}/sql_agent_output/rewrite_hints_llam3.1-70b_v1.csv", index=False)
+    df.to_csv(f"{working_dir}/sql_agent_output/hints_complete_description.csv", index=False)

@@ -163,31 +163,20 @@ You are an SQL expert tasked with answering questions about {domain}.
 You have the following tools to gather information:
 {tools}
 
+You have taken the following steps so far:
+{history}
+
 You can access a database that has {num_tables} tables. The schema of the tables is as follows. Read the schema carefully.
+**Table Schema:**
 {tables_schema}
+
+**Hints:**
+{hints}
 
 When querying the database, remember the following:
 1. Unless the user specifies a specific number of examples they wish to obtain, always limit your query to no more than 20 results.
 2. Only query columns that are relevant to the question.
 3. DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
-
-======= Your task =======
-**************************
-Question:
-{question}
-**************************
-Hints:
-{hints}
-**************************
-Your previous steps:
-{history}
-**************************
-
-IMPORTANT:
-* Divide the question into sub-questions and conquer sub-questions one by one.
-* You may need to combine information from multiple tables to answer the question.
-* If database does not have all the information needed to answer the question, use the web search tool or your own knowledge.
-* If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box. You hard work will be rewarded.
 
 **Output format:**
 1. Write down your thinking process.
@@ -201,7 +190,13 @@ TOOL CALL: {{"tool": "tool1", "args": {{"arg1": "value1", "arg2": "value2", ...}
 4. If you can answer the question, provide the answer in the following format:
 FINAL ANSWER: Your answer here.
 
-Now take a deep breath and think step by step to solve the problem.
+**IMPORTANT:**
+* Review your previous steps carefully and utilize the correct and relevant info in your previous steps.
+* If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box. You hard work will be rewarded.
+
+Now take a deep breath and think step by step to answeer the following question.
+Question:
+{question}
 """
 
 
@@ -215,12 +210,12 @@ You are an SQL database expert tasked with reviewing a SQL query.
 3. Analyze Query Requirements:
 - Original Question: Consider what information the query is supposed to retrieve.
 - Executed SQL Query: Review the SQL query that was previously executed.
-- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. 
+- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. Pay special attention to nulls.
 4. Check against the following common errors:
 - Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 4. Correct the Query if Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
-5. If the query is correct, provide the same query as the final answer.
+- If the query is correct, say the query is correct.
 
 ======= Your task =======
 **************************

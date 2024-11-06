@@ -8,12 +8,14 @@ LLM_ENDPOINT_URL="http://${ip_address}:8085"
 
 # MODEL="gpt-4o-mini-2024-07-18"
 MODEL="meta-llama/Llama-3.1-70B-Instruct"
+MAX_NEW_TOKENS=16384
 
 python3 test_sql_agent.py \
 --path $DBPATH \
 --query_file $QUERYFILE \
 --output $OUTFOLDER \
 --model $MODEL \
+--max_new_tokens $MAX_NEW_TOKENS \
 --debug \
 --kw_file $KWFILE \
 --llm_endpoint_url $LLM_ENDPOINT_URL \

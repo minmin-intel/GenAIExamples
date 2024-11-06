@@ -40,6 +40,10 @@ def get_tool_calls_other_than_sql(text):
         if "TOOL CALL:" in line:
             if "sql_db_query" not in line:
                 line = line.replace("TOOL CALL:", "")
+                if "assistant" in line:
+                    line = line.replace("assistant", "")
+                if "\\" in line:
+                    line = line.replace("\\", "")
                 try:
                     parsed_line = json.loads(line)
                     if isinstance(parsed_line, dict):
@@ -53,26 +57,25 @@ def get_tool_calls_other_than_sql(text):
 class LlamaOutputParser(BaseOutputParser):
     """
     Assumptions:
-    1. the final sql query is the query that agent wants to execute.
-    2. If making a tool call, the agent still not sure about answer, so even though FINAL ANSWER is in text, it should be ignored.
+    1. the final sql query in raw llm output is the query that agent wants to execute.
+    2. If FINAL ANSWER is in text, it should be considered agent's answer even though there might stil be tool calls in the text.
     3. If other tools like search_web, etc. are called together with sql query tool, the other tools should take priority over sql_db_query, to first gather related info first.
     """
     def parse(self, text: str):
         print("@@@ Raw output from llm:\n", text)
 
-        # first try to get tool call in format: TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT ..."}}
-        tool_calls = get_tool_calls_other_than_sql(text)
-        if tool_calls:
-            return tool_calls
+        if "FINAL ANSWER:" in text:
+            return [{"answer": text.split("FINAL ANSWER:")[-1]}]
         else:
-            # try to get sql query
-            sql_query = get_sql_query_from_output(text)
-            if sql_query:
-                return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+            # try to get tool call in format: TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT ..."}}
+            tool_calls = get_tool_calls_other_than_sql(text)
+            if tool_calls:
+                return tool_calls
             else:
-                # try to get answer
-                if "FINAL ANSWER:" in text:
-                    return [{"answer": text.split("FINAL ANSWER:")[-1]}]
+                # try to get sql query
+                sql_query = get_sql_query_from_output(text)
+                if sql_query:
+                    return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
                 else:
                     return text
         
@@ -134,10 +137,12 @@ def convert_json_to_tool_call(json_str):
 
 
 def get_tool_output(messages, id):
+    tool_output = ""
     for msg in reversed(messages):
         if isinstance(msg, ToolMessage):
             if msg.tool_call_id == id:
                 tool_output = msg.content
+                tool_output = tool_output[:1000] # limit to 1000 characters
                 break
     return tool_output
 

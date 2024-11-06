@@ -107,7 +107,7 @@ class AgentNodeLlama:
 
         # for generating hints
         self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
-        self.embed_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+        self.embed_model = SentenceTransformer('BAAI/bge-large-en-v1.5')
         self.column_embeddings = self.embed_model.encode(self.values_descriptions)
         
 
