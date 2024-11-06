@@ -121,7 +121,7 @@ class AgentNodeLlama:
         else:
             hints = state["hint"]
         print("@@@ Hints: ", hints)
-        history = assemble_history_with_feedback(state["messages"])
+        history = assemble_history_with_feedback(state["messages"], self.llm)
         print("@@@ History: ", history)
         # feedback = state["feedback"]
         # print("@@@ Feedback: ", feedback)

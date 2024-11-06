@@ -73,7 +73,7 @@ class LlamaOutputParser(BaseOutputParser):
             if sql_query:
                 return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
             else:
-                if "FINAL ANSWER:" in text:
+                if "FINAL ANSWER:" in text.upper():
                     return [{"answer": text.split("FINAL ANSWER:")[-1]}]
                 else:
                     return text
@@ -148,7 +148,7 @@ def get_tool_output(messages, id):
 
 HISTORY_SUMMARY_PROMPT = """\
 Your task is to summarize the steps that have been taken by an SQL agent.
-Capture the most important information contained the steps so that the agent can quickly understand the progress made so far.
+Capture the most important information contained the steps so that the agent can quickly understand the progress made so far and any corrections that need to be made.
 
 Steps taken:
 {steps}
@@ -175,18 +175,11 @@ def assemble_history(messages, chat_model):
             else:
                 # did not make tool calls
                 query_history += f"Assistant Output: {m.content}\n"
-
-    # if len(query_history) > 1000:
-    # summarize the history if it's too long
-    prompt = HISTORY_SUMMARY_PROMPT.format(steps=query_history)
-    response = chat_model.invoke(prompt)
-    print("@@@ Summarized history:\n", response)
-    query_history = response
         
     return query_history
 
 
-def assemble_history_with_feedback(messages):
+def assemble_history_with_feedback(messages, chat_model):
     """
     messages: AI, TOOL, HUMAN, AI, TOOL, HUMAN, etc.
     """
@@ -217,6 +210,12 @@ def assemble_history_with_feedback(messages):
             else:
                 # did not make tool calls
                 query_history += f"Assistant Output: {m.content}\n"
+
+    if len(query_history) > 1000:
+        prompt = HISTORY_SUMMARY_PROMPT.format(steps=query_history)
+        response = chat_model.invoke(prompt)
+        # print("@@@ Summarized history:\n", response)
+        query_history = response
 
     return query_history
 

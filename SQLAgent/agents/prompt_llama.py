@@ -184,8 +184,7 @@ SELECT column1, column2, ...
 3. You must use the following format for making a tool call. Make ONLY one tool call at a time.
 TOOL CALL: {{"tool": "tool1", "args": {{"arg1": "value1", "arg2": "value2", ...}}}}
 
-4. If you can answer the question, provide the answer in the following format:
-FINAL ANSWER: Your answer here.
+4. If you can answer the question, provide the answer after "FINAL ANSWER".
 
 **Your previous steps:**
 {history}
@@ -193,7 +192,7 @@ FINAL ANSWER: Your answer here.
 **IMPORTANT:**
 * Review your previous steps carefully and utilize them to answer the question.
 * The database may not have all the information needed to answer the question. Use other tools if necessary.
-* If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way.
+* If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box.
 * Do not repeat your previous steps.
 
 Now take a deep breath and think step by step to answeer the following question.
