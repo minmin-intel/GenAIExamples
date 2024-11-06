@@ -176,6 +176,7 @@ def assemble_history_with_feedback(messages):
     """
     query_history = ""
     breaker = "-" * 10
+    n = 1
     for m in messages[1:]:  # exclude the first message
         if isinstance(m, AIMessage):
             # if there is tool call
@@ -192,10 +193,11 @@ def assemble_history_with_feedback(messages):
                             if isinstance(messages[i], HumanMessage):
                                 feedback = messages[i].content
                                 break
-
-                        query_history += f"Executed SQL query: {tc_args}\nQuery Result: {tool_output}\nReview of SQL query: {feedback}\n{breaker}\n"
+                        sql_query = tc_args["query"]
+                        query_history += f"Step {n}. Executed SQL query: {sql_query}\nQuery Result: {tool_output}\nReview of SQL query: {feedback}\n{breaker}\n"
                     else:
-                        query_history += f"Called tool: {tool} - {tc_args}\nTool Output: {tool_output}\n{breaker}\n"
+                        query_history += f"Step {n}. Called tool: {tool} - {tc_args}\nTool Output: {tool_output}\n{breaker}\n"
+                    n += 1
             else:
                 # did not make tool calls
                 query_history += f"Assistant Output: {m.content}\n"

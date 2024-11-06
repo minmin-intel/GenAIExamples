@@ -192,6 +192,7 @@ FINAL ANSWER: Your answer here.
 
 **IMPORTANT:**
 * Review your previous steps carefully and utilize them to answer the question.
+* The database may not have all the information needed to answer the question. Use other tools if necessary.
 * If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way.
 * Do not repeat your previous steps.
 
