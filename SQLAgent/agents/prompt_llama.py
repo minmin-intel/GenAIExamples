@@ -163,9 +163,6 @@ You are an SQL expert tasked with answering questions about {domain}.
 You have the following tools to gather information:
 {tools}
 
-You have taken the following steps so far:
-{history}
-
 You can access a database that has {num_tables} tables. The schema of the tables is as follows. Read the schema carefully.
 **Table Schema:**
 {tables_schema}
@@ -190,9 +187,12 @@ TOOL CALL: {{"tool": "tool1", "args": {{"arg1": "value1", "arg2": "value2", ...}
 4. If you can answer the question, provide the answer in the following format:
 FINAL ANSWER: Your answer here.
 
+**Your previous steps:**
+{history}
+
 **IMPORTANT:**
-* Review your previous steps carefully and utilize the correct and relevant info in your previous steps.
-* If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box. You hard work will be rewarded.
+* Review your previous steps carefully and utilize them to answer the question.
+* If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way.
 
 Now take a deep breath and think step by step to answeer the following question.
 Question:
@@ -215,7 +215,6 @@ You are an SQL database expert tasked with reviewing a SQL query.
 - Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 4. Correct the Query if Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
-- If the query is correct, say the query is correct.
 
 ======= Your task =======
 **************************
