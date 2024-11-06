@@ -201,7 +201,7 @@ if __name__ == "__main__":
         ]
     #df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
-    recursion_limit = 25
+    recursion_limit = 15
     results = []
     traces = []
     num_llm_calls = []
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         os.makedirs(args.output)
 
     # outfile = args.query_file.split("/")[-1].replace("query", "llama_test_result_{}".format(args.model))
-    outfile = "v3_test_results_llama.csv"
+    outfile = "v4_test_results_llama.csv"
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
     print("Results saved to: ", os.path.join(args.output, outfile))

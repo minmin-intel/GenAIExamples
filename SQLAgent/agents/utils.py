@@ -58,24 +58,23 @@ class LlamaOutputParser(BaseOutputParser):
     """
     Assumptions:
     1. the final sql query in raw llm output is the query that agent wants to execute.
-    2. If FINAL ANSWER is in text, it should be considered agent's answer even though there might stil be tool calls in the text.
+    2. If FINAL ANSWER is in text, but there are tool calls, we assume agent needs to work more and the answer is not the final one.
     3. If other tools like search_web, etc. are called together with sql query tool, the other tools should take priority over sql_db_query, to first gather related info first.
     """
     def parse(self, text: str):
         print("@@@ Raw output from llm:\n", text)
-
-        if "FINAL ANSWER:" in text:
-            return [{"answer": text.split("FINAL ANSWER:")[-1]}]
+        # try to get tool call in format: TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT ..."}}
+        tool_calls = get_tool_calls_other_than_sql(text)
+        if tool_calls:
+            return tool_calls
         else:
-            # try to get tool call in format: TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT ..."}}
-            tool_calls = get_tool_calls_other_than_sql(text)
-            if tool_calls:
-                return tool_calls
+            # try to get sql query
+            sql_query = get_sql_query_from_output(text)
+            if sql_query:
+                return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
             else:
-                # try to get sql query
-                sql_query = get_sql_query_from_output(text)
-                if sql_query:
-                    return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+                if "FINAL ANSWER:" in text:
+                    return [{"answer": text.split("FINAL ANSWER:")[-1]}]
                 else:
                     return text
         
@@ -147,7 +146,17 @@ def get_tool_output(messages, id):
     return tool_output
 
 
-def assemble_history(messages):
+HISTORY_SUMMARY_PROMPT = """\
+Your task is to summarize the steps that have been taken by an SQL agent.
+Capture the most important information contained the steps so that the agent can quickly understand the progress made so far.
+
+Steps taken:
+{steps}
+
+Your summary:
+"""
+
+def assemble_history(messages, chat_model):
     """
     messages: AI, TOOL, AI, TOOL, etc.
     """
@@ -167,6 +176,13 @@ def assemble_history(messages):
                 # did not make tool calls
                 query_history += f"Assistant Output: {m.content}\n"
 
+    # if len(query_history) > 1000:
+    # summarize the history if it's too long
+    prompt = HISTORY_SUMMARY_PROMPT.format(steps=query_history)
+    response = chat_model.invoke(prompt)
+    print("@@@ Summarized history:\n", response)
+    query_history = response
+        
     return query_history
 
 

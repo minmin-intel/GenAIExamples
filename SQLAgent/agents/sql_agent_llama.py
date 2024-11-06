@@ -99,11 +99,11 @@ class AgentState(TypedDict):
     
 class AgentNodeLlama:
     def __init__(self, args, tools):
-        llm = setup_chat_model(args)
+        self.llm = setup_chat_model(args)
         self.args = args
         self.tools = tool_renderer(tools)
         output_parser=LlamaOutputParser()
-        self.chain= llm | output_parser
+        self.chain= self.llm | output_parser
 
         # for generating hints
         self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
