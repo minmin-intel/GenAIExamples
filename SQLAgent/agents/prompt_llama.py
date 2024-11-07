@@ -237,7 +237,8 @@ Now analyze the executed SQL query step by step. Present your reasonings. Fix th
 """
 
 
-
+# v5
+# v6: add do not mix tool call and sql
 AGENT_NODE_TEMPLATE = """\
 You are an SQL expert tasked with answering questions about {domain}. 
 In addition to the database, you have the following tools to gather information:
@@ -272,7 +273,8 @@ You have done the following steps so far:
 
 **IMPORTANT:**
 * Review your previous steps carefully and utilize them to answer the question. Do not repeat your previous steps.
-* The database may not have all the information needed to answer the question. Use the additional tools provided if necessary.
+* The database may not have all the information needed to answer the question. Use the additional tools provided if necessary. 
+* In one step, either send SQL query or make a tool call. Do not mix them.
 * If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box.
 
 Now take a deep breath and think step by step to answeer the following question.

@@ -54,7 +54,41 @@ def get_tool_calls_other_than_sql(text):
                     pass
     return tool_calls
 
+# v5: answer last
+# v6: answer first
+def parse_tool_calls(text):
+    # try to get tool call in format: TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT ..."}}
+    tool_calls = get_tool_calls_other_than_sql(text)
+    if tool_calls:
+        return tool_calls
+    else:
+        # try to get sql query
+        sql_query = get_sql_query_from_output(text)
+        if sql_query:
+            return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+        else:
+            return text
+    
 class LlamaOutputParser(BaseOutputParser):
+    """
+    Assumptions:
+    1. the final sql query in raw llm output is the query that agent wants to execute.
+    2. If FINAL ANSWER is in text, we consider it to be final.
+    3. If other tools like search_web, etc. are called together with sql query tool, the other tools should take priority over sql_db_query, to first gather related info first.
+    """
+    def parse(self, text: str):
+        print("@@@ Raw output from llm:\n", text)
+        if "FINAL ANSWER:" in text.upper():
+            answer = text.split("FINAL ANSWER:")[-1]
+            if answer:
+                return [{"answer": answer}]
+            else:
+                return parse_tool_calls(text)
+        else:
+            return parse_tool_calls(text)
+                
+
+class LlamaOutputParserV3(BaseOutputParser):
     """
     Assumptions:
     1. the final sql query in raw llm output is the query that agent wants to execute.
