@@ -32,6 +32,7 @@ def get_args():
     parser.add_argument("--top_p", type=float, default=0.95)
     parser.add_argument("--temperature", type=float, default=0.01)
     parser.add_argument("--repetition_penalty", type=float, default=1.03)
+    parser.add_argument("--strategy", type=str, default="sql_agent_llama")
     args = parser.parse_args()
     return args
 
@@ -123,7 +124,7 @@ if __name__ == "__main__":
     elif args.critic:
         tools = get_tools(args, llm)
         system_message = SystemMessage(content=V7_SYSM)
-    elif args.sql_agent or args.sql_llama:
+    elif args.sql_agent or args.sql_agent_fixer or args.sql_agent_hint_fixer:
         from agents.tools import get_tools_sql_agent
         tools = get_tools_sql_agent(args)
     elif args.hier_sql_agent:
@@ -139,19 +140,8 @@ if __name__ == "__main__":
         sql_agent_fixer_executor = sql_agent_fixer.app
         tools = [query_database_with_sql_agent, search_web]
         system_message = SystemMessage(content=V10_SYSM)
-    elif args.sql_agent_fixer or args.sql_agent_hint_fixer:
-        # from agents.tools import search_web
-        # from agents.sql_agent import SQLAgentWithHintAndQueryFixer
+    elif args.sql_llama:
         from agents.tools import get_tools_sql_agent
-        # db_query_tool = get_tools_sql_agent(args)[0]
-        # tools = [query_database_with_sql_agent, search_web]
-        # system_message = SystemMessage(content=V10_SYSM)
-        # global sql_agent_fixer
-        # global sql_agent_fixer_executor
-        # sql_agent_fixer = SQLAgentWithQueryFixer(args, [db_query_tool])
-        # sql_agent_fixer_executor = sql_agent_fixer.app
-        # temp_tools = get_tools_sql_agent(args)
-        # tools = [temp_tools[0]] # only use the db_query_tool
         tools = get_tools_sql_agent(args)
     else:
         tools = get_tools(args, llm)
@@ -174,9 +164,14 @@ if __name__ == "__main__":
         agent_executor = agent.app
     elif args.sql_llama:
         print("========Initializing SQLAgentWithQueryFixer with LLAMA-3.1-70B-instruct ========")
-        from agents.sql_agent_llama import SQLAgentWithQueryFixerLLAMA
-        agent = SQLAgentWithQueryFixerLLAMA(args, tools)
-        agent_executor = agent.app
+        if args.strategy == "sql_agent_llama":
+            from agents.sql_agent_llama import SQLAgentLLAMA
+            agent = SQLAgentLLAMA(args, tools)
+            agent_executor = agent.app
+        elif args.strategy == "sql_fixer_llama":
+            from agents.sql_agent_llama import SQLAgentWithQueryFixerLLAMA
+            agent = SQLAgentWithQueryFixerLLAMA(args, tools)
+            agent_executor = agent.app
     elif args.sql_agent_hint_fixer:
         from agents.sql_agent import SQLAgentWithHintAndQueryFixer
         agent = SQLAgentWithHintAndQueryFixer(args, tools)
@@ -233,7 +228,7 @@ if __name__ == "__main__":
         os.makedirs(args.output)
 
     # outfile = args.query_file.split("/")[-1].replace("query", "llama_test_result_{}".format(args.model))
-    outfile = "v4_test_results_llama.csv"
+    outfile = "v5_test_results_llama.csv"
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
     print("Results saved to: ", os.path.join(args.output, outfile))

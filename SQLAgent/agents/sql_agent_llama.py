@@ -15,13 +15,13 @@ from sentence_transformers import SentenceTransformer
 try:
     from .prompt_llama import *
     from .hint import generate_column_descriptions, pick_hints
-    from .utils import convert_json_to_tool_call, assemble_history_with_feedback
+    from .utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history
     from .utils import LlamaOutputParser
 
 except:
     from prompt_llama import *
     from hint import generate_column_descriptions, pick_hints
-    from utils import convert_json_to_tool_call, assemble_history_with_feedback
+    from utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history
     from utils import LlamaOutputParser
 
 
@@ -78,6 +78,24 @@ def tool_renderer(tools):
     return "\n".join(tool_strings)
 
 
+def tool_renderer_exclude_sql_query(tools):
+    tool_strings = []
+    for tool in tools:
+        if tool.name == "sql_db_query":
+            pass
+        else:
+            description = f"{tool.name} - {tool.description}"
+
+            arg_schema = []
+            for k, tool_dict in tool.args.items():
+                k_type = tool_dict["type"] if "type" in tool_dict else ""
+                k_desc = tool_dict["description"] if "description" in tool_dict else ""
+                arg_schema.append(f"{k} ({k_type}): {k_desc}")
+
+            tool_strings.append(f"{description}, args: {arg_schema}")
+    return "\n".join(tool_strings)
+
+
 def get_table_schema(db_name):
     working_dir = os.getenv("WORKDIR")
     DBPATH=f"{working_dir}/TAG-Bench/dev_folder/dev_databases/{db_name}/{db_name}.sqlite"
@@ -101,7 +119,9 @@ class AgentNodeLlama:
     def __init__(self, args, tools):
         self.llm = setup_chat_model(args)
         self.args = args
-        self.tools = tool_renderer(tools)
+        # self.tools = tool_renderer(tools)
+        self.tools = tool_renderer_exclude_sql_query(tools)
+        print("@@@@ Tools: ", self.tools)
         output_parser=LlamaOutputParser()
         self.chain= self.llm | output_parser
 
@@ -121,7 +141,10 @@ class AgentNodeLlama:
         else:
             hints = state["hint"]
         print("@@@ Hints: ", hints)
-        history = assemble_history_with_feedback(state["messages"], self.llm)
+        if self.args.strategy == "sql_fixer_llama":
+            history = assemble_history_with_feedback(state["messages"], self.llm)
+        elif self.args.strategy == "sql_agent_llama":
+            history = assemble_history(state["messages"])
         print("@@@ History: ", history)
         # feedback = state["feedback"]
         # print("@@@ Feedback: ", feedback)
@@ -298,6 +321,61 @@ class SQLAgentWithQueryFixerLLAMA:
     
     def prepare_initial_state(self, query):
         return {"messages": [HumanMessage(content=query)], "is_last_step": IsLastStep(False), "hint": "", "feedback": ""}
+
+class SQLAgentLLAMA:
+    def __init__(self, args, tools):
+        agent = AgentNodeLlama(args, tools)
+        tool_node = ToolNode(tools)
+
+        workflow = StateGraph(AgentState)
+
+        # Define the nodes we will cycle between
+        workflow.add_node("agent", agent)
+        workflow.add_node("tools", tool_node)
+
+        workflow.set_entry_point("agent")
+
+        # We now add a conditional edge
+        workflow.add_conditional_edges(
+            # First, we define the start node. We use `agent`.
+            # This means these are the edges taken after the `agent` node is called.
+            "agent",
+            # Next, we pass in the function that will determine which node is called next.
+            self.should_continue,
+            # Finally we pass in a mapping.
+            # The keys are strings, and the values are other nodes.
+            # END is a special node marking that the graph should finish.
+            # What will happen is we will call `should_continue`, and then the output of that
+            # will be matched against the keys in this mapping.
+            # Based on which one it matches, that node will then be called.
+            {
+                # If `tools`, then we call the tool node.
+                "continue": "tools",
+                "end": END,
+            },
+        )
+
+        # We now add a normal edge from `tools` to `agent`.
+        # This means that after `tools` is called, `agent` node is called next.
+        workflow.add_edge("tools", "agent")
+
+        self.app = workflow.compile()
+        
+
+    # Define the function that determines whether to continue or not
+    def should_continue(self, state: AgentState):
+        messages = state["messages"]
+        last_message = messages[-1]
+        # If there is no function call, then we finish
+        if not last_message.tool_calls:
+            return "end"
+        # Otherwise if there is, we continue
+        else:
+            return "continue"
+    
+    def prepare_initial_state(self, query):
+        return {"messages": [HumanMessage(content=query)], "is_last_step": IsLastStep(False), "hint": ""}
+
 
 
 
