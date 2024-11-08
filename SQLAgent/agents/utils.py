@@ -82,41 +82,49 @@ def parse_answer(text):
     return None
 
 ANSWER_PARSER_PROMPT = """\
-Review the output from an SQL agent and determine if the final answer has been provided. 
+Review the output from an SQL agent and determine if a correct answer has been provided and grounded on real data. 
 
 Say "yes" when all the following conditions are met:
 1. The answer is based on real data from a database or tool calls, instead of agent's assumptions or guesses.
 2. The answer is complete and does not require additional steps to be taken.
 3. The answer does not have placeholders that need to be filled in.
+4. The agent's execution history is not empty.
+5. The agent has not made any mistakes.
 
 If the conditions above are not met, say "no".
 
 Here is the output from the SQL agent:
 {output}
 
-Has a final answer been provided? Analyze the agent output and make your judgement "yes" or "no".
+Here is the agent execution history:
+{history}
+
+Has a final answer been provided based on real data? Analyze the agent output and make your judgement "yes" or "no".
 """
 
-def parse_answer_with_llm(text, chat_model):
-    prompt = ANSWER_PARSER_PROMPT.format(output=text)
-    response = chat_model.invoke(prompt).content
-    print("@@@ Answer parser response: ", response)
-    if "yes" in response.lower():
-        return True
+def parse_answer_with_llm(text, history, chat_model):
+    if "FINAL ANSWER:" in text.upper():
+        prompt = ANSWER_PARSER_PROMPT.format(output=text, history=history)
+        response = chat_model.invoke(prompt).content
+        print("@@@ Answer parser response: ", response)
+        if "yes" in response.lower():
+            return text.split("FINAL ANSWER:")[-1]
+        else:
+            return None
     else:
-        return False
+        return None
 
 
 class LlamaOutputParser:
     def __init__(self, chat_model):
         self.chat_model = chat_model
 
-    def parse(self, text: str):
+    def parse(self, text: str, history: str):
         print("@@@ Raw output from llm:\n", text)
-        if "FINAL ANSWER:" in text.upper():
-            answer_exists = parse_answer_with_llm(text, self.chat_model)
-            if answer_exists:
-                return text
+        answer = parse_answer_with_llm(text, history, self.chat_model)
+        if answer:
+            print("Final answer exists.")
+            return answer
         else:
             tool_calls = parse_tool_calls(text)
             if tool_calls:
@@ -125,7 +133,39 @@ class LlamaOutputParser:
                 return text
         
 
+def parse_and_fix_sql_query(text, chat_model):
+    sql_query = get_sql_query_from_output(text)
+    if sql_query:
+        # check and fix the sql query
+        pass
+    else:
+        return None
 
+
+class LlamaOutputParserAndQueryFixer:
+    def __init__(self, chat_model):
+        self.chat_model = chat_model
+
+    def parse(self, text: str):
+        print("@@@ Raw output from llm:\n", text)
+        answer = parse_answer_with_llm(text, self.chat_model)
+        if answer:
+            print("Final answer exists.")
+            return answer
+        else:
+            tool_calls = get_tool_calls_other_than_sql(text)
+            sql_query = parse_and_fix_sql_query(text)
+            if sql_query:
+                sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+                tool_calls.extend(sql_tool_call)
+            if tool_calls:
+                return tool_calls
+            else:
+                return text
+            
+            
+
+            
 class LlamaOutputParserV7(BaseOutputParser):
     """
     Assumptions:

@@ -113,7 +113,7 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     is_last_step: IsLastStep
     hint: str
-    feedback: str
+
     
 class AgentNodeLlama:
     def __init__(self, args, tools):
@@ -162,8 +162,8 @@ class AgentNodeLlama:
             )
         
         output = self.chain.invoke(prompt)
-        parsed_output = self.output_parser.parse(output.content)
-        print("@@@@@ Agent output:\n", parsed_output)
+        output = self.output_parser.parse(output.content, history)
+        print("@@@@@ Agent output:\n", output)
 
         # convert output to tool calls
         tool_calls = []
