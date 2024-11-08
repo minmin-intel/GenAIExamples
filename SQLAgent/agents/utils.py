@@ -81,7 +81,52 @@ def parse_answer(text):
                 return None
     return None
 
+ANSWER_PARSER_PROMPT = """\
+Review the output from an SQL agent and determine if the final answer has been provided. 
+
+Say "yes" when all the following conditions are met:
+1. The answer is based on real data from a database or tool calls, instead of agent's assumptions or guesses.
+2. The answer is complete and does not require additional steps to be taken.
+3. The answer does not have placeholders that need to be filled in.
+
+If the conditions above are not met, say "no".
+
+Here is the output from the SQL agent:
+{output}
+
+Has a final answer been provided? Analyze the agent output and make your judgement "yes" or "no".
+"""
+
+def parse_answer_with_llm(text, chat_model):
+    prompt = ANSWER_PARSER_PROMPT.format(output=text)
+    response = chat_model.invoke(prompt).content
+    print("@@@ Answer parser response: ", response)
+    if "yes" in response.lower():
+        return True
+    else:
+        return False
+
+
 class LlamaOutputParser(BaseOutputParser):
+    def __init__(self, chat_model=None):
+        self.chat_model = chat_model
+
+    def parse(self, text: str):
+        print("@@@ Raw output from llm:\n", text)
+        if "FINAL ANSWER:" in text.upper():
+            answer_exists = parse_answer_with_llm(text, self.chat_model)
+            if answer_exists:
+                return text
+        else:
+            tool_calls = parse_tool_calls(text)
+            if tool_calls:
+                return tool_calls
+            else:
+                return text
+        
+
+
+class LlamaOutputParserV7(BaseOutputParser):
     """
     Assumptions:
     1. the final sql query in raw llm output is the query that agent wants to execute.
@@ -374,8 +419,6 @@ ORDER BY T1.AvgScrRead ASC LIMIT 1;
 ```
 
 This query will give us the school with the lowest average score in reading in Southern California and its telephone number.
-
-TOOL CALL: sql_db_query - {'query': "SELECT T1.cds, T1.AvgScrRead, T2.Phone FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.County IN ('Los Angeles', 'Orange', 'San Diego', 'San Bernardino', 'Riverside', 'Ventura', 'Santa Barbara', 'San Luis Obispo', 'Kern', 'Imperial') ORDER BY T1.AvgScrRead ASC LIMIT 1;"}
 
 Let's execute this query and get the result.
     """

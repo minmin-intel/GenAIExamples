@@ -122,7 +122,7 @@ class AgentNodeLlama:
         # self.tools = tool_renderer(tools)
         self.tools = tool_renderer_exclude_sql_query(tools)
         print("@@@@ Tools: ", self.tools)
-        output_parser=LlamaOutputParser()
+        output_parser=LlamaOutputParser(chat_model=self.llm)
         self.chain= self.llm | output_parser
 
         # for generating hints
