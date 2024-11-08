@@ -16,13 +16,13 @@ try:
     from .prompt_llama import *
     from .hint import generate_column_descriptions, pick_hints
     from .utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history
-    from .utils import LlamaOutputParser
+    from .utils import LlamaOutputParser, LlamaOutputParserAndQueryFixer
 
 except:
     from prompt_llama import *
     from hint import generate_column_descriptions, pick_hints
     from utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history
-    from utils import LlamaOutputParser
+    from utils import LlamaOutputParser, LlamaOutputParserAndQueryFixer
 
 
 def setup_tgi(args):
@@ -125,7 +125,8 @@ class AgentNodeLlama:
         # output_parser=LlamaOutputParser()
         # self.chain= self.llm | output_parser
         self.chain = self.llm
-        self.output_parser = LlamaOutputParser(chat_model = self.llm)
+        # self.output_parser = LlamaOutputParser(chat_model = self.llm)
+        self.output_parser = LlamaOutputParserAndQueryFixer(chat_model = self.llm)
 
         # for generating hints
         self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
@@ -162,7 +163,7 @@ class AgentNodeLlama:
             )
         
         output = self.chain.invoke(prompt)
-        output = self.output_parser.parse(output.content, history)
+        output = self.output_parser.parse(output.content, question, history)
         print("@@@@@ Agent output:\n", output)
 
         # convert output to tool calls

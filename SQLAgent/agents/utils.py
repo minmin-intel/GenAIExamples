@@ -85,7 +85,7 @@ ANSWER_PARSER_PROMPT = """\
 Review the output from an SQL agent and determine if a correct answer has been provided and grounded on real data. 
 
 Say "yes" when all the following conditions are met:
-1. The answer is based on real data from a database or tool calls, instead of agent's assumptions or guesses.
+1. The answer is based on real data from a database or tool calls, instead of agent's assumptions or guesses or imaginations.
 2. The answer is complete and does not require additional steps to be taken.
 3. The answer does not have placeholders that need to be filled in.
 4. The agent's execution history is not empty.
@@ -95,15 +95,18 @@ If the conditions above are not met, say "no".
 
 Here is the output from the SQL agent:
 {output}
-
+======================
 Here is the agent execution history:
 {history}
+======================
 
 Has a final answer been provided based on real data? Analyze the agent output and make your judgement "yes" or "no".
 """
 
 def parse_answer_with_llm(text, history, chat_model):
     if "FINAL ANSWER:" in text.upper():
+        if history == "":
+            history = "The agent execution history is empty."
         prompt = ANSWER_PARSER_PROMPT.format(output=text, history=history)
         response = chat_model.invoke(prompt).content
         print("@@@ Answer parser response: ", response)
@@ -132,12 +135,91 @@ class LlamaOutputParser:
             else:
                 return text
         
+SQL_QUERY_PARSER_PROMPT = """\
+Review the set of SQL queries below. Pick the query that is most likely to provide the correct answer to the user question. 
 
-def parse_and_fix_sql_query(text, chat_model):
-    sql_query = get_sql_query_from_output(text)
-    if sql_query:
-        # check and fix the sql query
-        pass
+SQL Queries:
+{queries}
+
+User Question:
+{question}
+
+Write down the number of the SQL query that you think is the most appropriate.
+"""
+
+SQL_QUERY_FIXER_PROMPT = """\
+You are an SQL database expert tasked with reviewing a SQL query. 
+**Procedure:**
+1. Review Database Schema:
+- Examine the table creation statements to understand the database structure.
+2. Review the Hint provided.
+- Use the provided hints to understand the domain knowledge relevant to the query.
+3. Analyze Query Requirements:
+- Original Question: Consider what information the query is supposed to retrieve.
+- Executed SQL Query: Review the SQL query that was previously executed.
+- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. Pay special attention to nulls.
+4. Check against the following common errors:
+- Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
+4. Correct the Query if Necessary:
+- If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
+
+======= Your task =======
+**************************
+Table creation statements
+{DATABASE_SCHEMA}
+**************************
+Hint:
+{HINT}
+**************************
+The original question is:
+Question:
+{QUESTION}
+The SQL query executed was:
+{QUERY}
+The execution result:
+{RESULT}
+**************************
+Now analyze the executed SQL query step by step. Present your reasonings. Fix the SQL query if any issues were identified. If the query is correct, just say the query is correct.
+"""
+
+
+def get_all_sql_queries(text):
+    queries = []
+    if "```sql" in text:
+        temp = text.split("```sql")
+        for t in temp:
+            if "```" in t:
+                query = t.split("```")[0]
+                if "SELECT" in query.upper() and "TOOL CALL" not in query.upper():
+                    queries.append(query)
+
+    return queries
+
+def format_sql_queries(queries):
+    formatted_queries = ""
+    for i, q in enumerate(queries):
+        formatted_queries += f"{i+1}.\n{q}\n"
+    return formatted_queries
+
+def parse_and_fix_sql_query(question, text, chat_model):
+    sql_queries = get_all_sql_queries(text)
+    chosen_query = ""
+    if sql_queries:
+        # choose the most appropriate query
+        formatted_queries = format_sql_queries(sql_queries)
+        prompt = SQL_QUERY_PARSER_PROMPT.format(queries=formatted_queries, question=question)
+        response = chat_model.invoke(prompt).content
+        print("@@@ SQL query parser response: ", response)
+        if response.isdigit():
+            idx = int(response) - 1
+            chosen_query=sql_queries[idx]
+        else:
+            for q in sql_queries:
+                if response.upper() in q.upper():
+                    chosen_query = q
+        # check if the chosen query is correct with LLM - TODO
+        if chosen_query:
+            return chosen_query         
     else:
         return None
 
@@ -146,18 +228,17 @@ class LlamaOutputParserAndQueryFixer:
     def __init__(self, chat_model):
         self.chat_model = chat_model
 
-    def parse(self, text: str):
+    def parse(self, text: str, question: str, history: str):
         print("@@@ Raw output from llm:\n", text)
-        answer = parse_answer_with_llm(text, self.chat_model)
+        answer = parse_answer_with_llm(text, history, self.chat_model)
         if answer:
             print("Final answer exists.")
             return answer
         else:
             tool_calls = get_tool_calls_other_than_sql(text)
-            sql_query = parse_and_fix_sql_query(text)
-            if sql_query:
-                sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
-                tool_calls.extend(sql_tool_call)
+            sql_query = parse_and_fix_sql_query(question, text, self.chat_model)
+            sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+            tool_calls.extend(sql_tool_call)
             if tool_calls:
                 return tool_calls
             else:
@@ -396,37 +477,6 @@ if __name__ == "__main__":
     db_query_tool = QuerySQLDataBaseTool(db=db, description=query_sql_database_tool_description)
     # test
 
-    # passed
-    text = """\
-    To answer this question, we need to find the schools in the Bay Area with an average score in Math over 560 in the SAT test. 
-
-First, we need to identify the schools in the Bay Area. The Bay Area includes several counties, including Alameda, Contra Costa, Marin, Napa, San Francisco, San Mateo, Santa Clara, Solano, and Sonoma. We can use the `schools` table to find the schools in these counties.
-First, we need to find the counties with a population over 2 million. However, the provided database schema does not contain information about the population of counties. Therefore, we will use the web search tool to find the counties in California with a population over 2 million.
-
-TOOL CALL: {"tool": "search_web", "args": {"query": "counties in California with population over 2 million"}}
-
-After finding the counties with a population over 2 million, we will use the database to find the number of test takers at schools in those counties. We can do this by joining the 'satscores' table with the 'schools' table on the 'CDSCode' column, and then filtering the results to only include schools in the counties we found earlier.
-Next, we need to find the schools with an average score in Math over 560 in the SAT test. We can use the `satscores` table to find this information.
-
-Here's a SQL query that combines the information from both tables:
-
-```sql
-SELECT COUNT(T1.CDSCode) 
-FROM schools AS T1 
-INNER JOIN satscores AS T2 
-ON T1.CDSCode = T2.cds 
-WHERE T1.County IN ('Alameda', 'Contra Costa', 'Marin', 'Napa', 'San Francisco', 'San Mateo', 'Santa Clara', 'Solano', 'Sonoma') 
-AND T2.AvgScrMath > 560
-```
-
-This query joins the `schools` table with the `satscores` table on the `CDSCode` column, which is common to both tables. It then selects the schools in the Bay Area counties and with an average score in Math over 560.
-
-Let's execute this query to get the answer.
-TOOL CALL: {"tool": "search_web", "args": {"query": "Search again counties in California with population over 2 million"}}
-TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT COUNT(T1.CDSCode) FROM schools AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T1.County IN (\'Alameda\', \'Contra Costa\', \'Marin\', \'Napa\', \'San Francisco\', \'San Mateo\', \'Santa Clara\', \'Solano\', \'Sonoma\') AND T2.AvgScrMath > 560"}}
-    """
-
-
 #     #passed
     text = """\
 To answer this question, we need to find the school with the lowest average score in reading in Southern California and then retrieve its telephone number.
@@ -440,8 +490,6 @@ Here's the query to get the schools in Southern California with their average sc
 ```sql
 SELECT T1.cds, T1.AvgScrRead, T2.Phone 
 FROM satscores AS T1 
-INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode 
-WHERE T2.County IN ('Los Angeles', 'Orange', 'San Diego', 'San Bernardino', 'Riverside', 'Ventura', 'Santa Barbara', 'San Luis Obispo', 'Kern', 'Imperial');
 ```
 
 This query joins the `satscores` table with the `schools` table on the `cds` column and filters the results to include only schools in Southern California.
@@ -460,39 +508,25 @@ ORDER BY T1.AvgScrRead ASC LIMIT 1;
 
 This query will give us the school with the lowest average score in reading in Southern California and its telephone number.
 
+```sql
+TOOL CALL: {"tool": "search_web", "args": {"query": "most popular cities to visit among Oakland, Hayward, Newark, Fremont, Union City, San Leandro, Berkeley,Alameda, Pleasanton, Dublin"}}
+```
 Let's execute this query and get the result.
     """
 
-    # passed
-    text = """\
-Let's assume the query returns the following schools:
+    
+    # parser = LlamaOutputParser()
+    # output = parser.parse(text)
+    # # print(output)
+    # for x in output:
+    #     if "tool" in x and x["tool"] == "sql_db_query":
+    #         print("Query db....")
+    #         print(db_query_tool.invoke({"query":x["args"]["query"]}))
+    #     else:
+    #         print(x)
 
-| CDSCode | County | District | School | AvgScrMath |
-| --- | --- | --- | --- | --- |
-| 12345 | Riverside | Riverside Unified | Riverside High School | 420 |
-| 67890 | Riverside | Riverside Unified | John W. North High School | 450 |
-
-Now, let's analyze the qualities of these schools based on the information provided in the `schools` table.
-
-```sql
-SELECT * 
-FROM schools 
-WHERE CDSCode IN ('12345', '67890');
-```
-
-This query will return all the columns for the schools with `CDSCode` 12345 and 67890.
-
-Based on the information provided in the `schools` table, we can analyze the qualities of these schools, such as their status type, street address, city, zip code, phone number, website, and more.
-
-FINAL ANSWER: The schools in Riverside where the average math score for SAT is greater than 400 are Riverside High School and John W. North High School. Their qualities can be analyzed based on the information provided in the `schools` table.
-    """
-    parser = LlamaOutputParser()
-    output = parser.parse(text)
-    # print(output)
-    for x in output:
-        if "tool" in x and x["tool"] == "sql_db_query":
-            print("Query db....")
-            print(db_query_tool.invoke({"query":x["args"]["query"]}))
-        else:
-            print(x)
+    query_list = get_all_sql_queries(text)
+    print(query_list)
+    formatted_queries = format_sql_queries(query_list)
+    print(formatted_queries)
      
