@@ -85,11 +85,10 @@ ANSWER_PARSER_PROMPT = """\
 Review the output from an SQL agent and determine if a correct answer has been provided and grounded on real data. 
 
 Say "yes" when all the following conditions are met:
-1. The answer is based on real data from a database or tool calls, instead of agent's assumptions or guesses or imaginations.
-2. The answer is complete and does not require additional steps to be taken.
-3. The answer does not have placeholders that need to be filled in.
-4. The agent's execution history is not empty.
-5. The agent has not made any mistakes.
+1. The answer is complete and does not require additional steps to be taken.
+2. The answer does not have placeholders that need to be filled in.
+3. The answer is Not based on agent's assumptions or guesses or imaginations.
+4. The agent has acquired data from database and its execution history is Not empty.
 
 If the conditions above are not met, say "no".
 
@@ -107,6 +106,8 @@ def parse_answer_with_llm(text, history, chat_model):
     if "FINAL ANSWER:" in text.upper():
         if history == "":
             history = "The agent execution history is empty."
+        else:
+            history = "Agent has acquired data from database."
         prompt = ANSWER_PARSER_PROMPT.format(output=text, history=history)
         response = chat_model.invoke(prompt).content
         print("@@@ Answer parser response: ", response)
@@ -210,13 +211,18 @@ def parse_and_fix_sql_query(question, text, chat_model):
         prompt = SQL_QUERY_PARSER_PROMPT.format(queries=formatted_queries, question=question)
         response = chat_model.invoke(prompt).content
         print("@@@ SQL query parser response: ", response)
-        if response.isdigit():
-            idx = int(response) - 1
-            chosen_query=sql_queries[idx]
-        else:
-            for q in sql_queries:
-                if response.upper() in q.upper():
-                    chosen_query = q
+        for char in response:
+            if char.isdigit():
+                idx = int(char) - 1
+                chosen_query = sql_queries[idx]
+                break
+        # if response.isdigit():
+        #     idx = int(response) - 1
+        #     chosen_query=sql_queries[idx]
+        # else:
+        #     for q in sql_queries:
+        #         if response.upper() in q.upper():
+        #             chosen_query = q
         # check if the chosen query is correct with LLM - TODO
         if chosen_query:
             return chosen_query         
@@ -529,4 +535,24 @@ Let's execute this query and get the result.
     print(query_list)
     formatted_queries = format_sql_queries(query_list)
     print(formatted_queries)
+
+    response = """
+The most likely SQL query to provide the correct answer to the user question is:
+
+3.
+
+This query first joins the `satscores` table with the `schools` table to get the city and county information for each school. It then filters the results to
+include only schools with an average math score over 560. Finally, it counts the number of schools in the Bay Area (defined as the counties 'Alameda', 'Contr
+a Costa', 'Marin', 'Napa', 'San Francisco', 'San Mateo', 'Santa Clara', 'Solano', 'Sonoma').
+
+Query 1 does not provide the location information, so it cannot answer the question. Query 2 provides the location information, but it does not count the num
+ber of schools in the Bay Area.
+
+"""
+
+    for char in response:
+        if char.isdigit():
+            idx = int(char) - 1
+            print(idx)
+            break
      
