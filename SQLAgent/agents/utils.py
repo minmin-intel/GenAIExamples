@@ -56,19 +56,17 @@ def get_tool_calls_other_than_sql(text):
 
 # v5: answer last
 # v6: answer first
+# v7: multiple tool calls together
 def parse_tool_calls(text):
     # try to get tool call in format: TOOL CALL: {"tool": "sql_db_query", "args": {"query": "SELECT ..."}}
     tool_calls = get_tool_calls_other_than_sql(text)
-    if tool_calls:
-        return tool_calls
-    else:
-        # try to get sql query
-        sql_query = get_sql_query_from_output(text)
-        if sql_query:
-            return [{"tool": "sql_db_query", "args": {"query": sql_query}}]
-        else:
-            return text
-    
+    sql_query = get_sql_query_from_output(text)
+    if sql_query:
+        sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+        tool_calls.extend(sql_tool_call)
+    return tool_calls
+
+
 class LlamaOutputParser(BaseOutputParser):
     """
     Assumptions:

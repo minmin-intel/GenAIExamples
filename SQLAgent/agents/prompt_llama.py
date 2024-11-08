@@ -239,6 +239,7 @@ Now analyze the executed SQL query step by step. Present your reasonings. Fix th
 
 # v5
 # v6: add do not mix tool call and sql
+# v7: no constraints on tool calls, ask FINAL ANSWER only at final answer
 AGENT_NODE_TEMPLATE = """\
 You are an SQL expert tasked with answering questions about {domain}. 
 In addition to the database, you have the following tools to gather information:
@@ -265,7 +266,7 @@ SELECT column1, column2, ...
 3. When making tool calls, you must use the following format. Make ONLY one tool call at a time.
 TOOL CALL: {{"tool": "tool1", "args": {{"arg1": "value1", "arg2": "value2", ...}}}}
 
-4. When you can arrive at an answer after reasoning and gathering data, provide your final answer after "FINAL ANSWER".
+4. After you have arrived at the answer with data and reasoning, write your final answer after "FINAL ANSWER" 
 
 You have done the following steps so far:
 **Your previous steps:**
@@ -274,8 +275,8 @@ You have done the following steps so far:
 **IMPORTANT:**
 * Review your previous steps carefully and utilize them to answer the question. Do not repeat your previous steps.
 * The database may not have all the information needed to answer the question. Use the additional tools provided if necessary. 
-* In one step, either send SQL query or make a tool call. Do not mix them.
 * If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box.
+* Only output FINAL ANSWER after you have arrived at your final answer with actual data and reasoning.
 
 Now take a deep breath and think step by step to answeer the following question.
 Question:
