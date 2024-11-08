@@ -66,8 +66,42 @@ def parse_tool_calls(text):
         tool_calls.extend(sql_tool_call)
     return tool_calls
 
+def parse_answer(text):
+    lines = text.split("\n")
+    for line in lines:
+        if "FINAL ANSWER:" in line.upper():
+            line = line.replace("FINAL ANSWER:", "")
+            line = line.replace("assistant", "")
+            try:
+                parsed_line = json.loads(line)
+                if isinstance(parsed_line, dict):
+                    if "answer" in parsed_line:
+                        return parsed_line
+            except:
+                return None
+    return None
 
 class LlamaOutputParser(BaseOutputParser):
+    """
+    Assumptions:
+    1. the final sql query in raw llm output is the query that agent wants to execute.
+    2. If FINAL ANSWER is in text, we consider it to be final.
+    3. If other tools like search_web, etc. are called together with sql query tool, the other tools should take priority over sql_db_query, to first gather related info first.
+    """
+    def parse(self, text: str):
+        print("@@@ Raw output from llm:\n", text)
+        answer_dict = parse_answer(text)
+        if answer_dict:
+            return [answer_dict]
+        else:
+            tool_calls = parse_tool_calls(text)
+            if tool_calls:
+                return tool_calls
+            else:
+                return text
+        
+
+class LlamaOutputParserV6(BaseOutputParser):
     """
     Assumptions:
     1. the final sql query in raw llm output is the query that agent wants to execute.

@@ -266,7 +266,8 @@ SELECT column1, column2, ...
 3. When making tool calls, you must use the following format. Make ONLY one tool call at a time.
 TOOL CALL: {{"tool": "tool1", "args": {{"arg1": "value1", "arg2": "value2", ...}}}}
 
-4. After you have arrived at the answer with data and reasoning, write your final answer after "FINAL ANSWER" 
+4. After you have arrived at the answer with data and reasoning, you must write your final answer using the following format.
+FINAL ANSWER: {{"answer": "your final answer here."}} 
 
 You have done the following steps so far:
 **Your previous steps:**
@@ -276,7 +277,6 @@ You have done the following steps so far:
 * Review your previous steps carefully and utilize them to answer the question. Do not repeat your previous steps.
 * The database may not have all the information needed to answer the question. Use the additional tools provided if necessary. 
 * If you did not get the answer at first, do not give up. Reflect on the steps that you have taken and try a different way. Think out of the box.
-* Only output FINAL ANSWER after you have arrived at your final answer with actual data and reasoning.
 
 Now take a deep breath and think step by step to answeer the following question.
 Question:
