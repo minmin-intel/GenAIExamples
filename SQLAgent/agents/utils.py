@@ -107,8 +107,8 @@ def parse_answer_with_llm(text, chat_model):
         return False
 
 
-class LlamaOutputParser(BaseOutputParser):
-    def __init__(self, chat_model=None):
+class LlamaOutputParser:
+    def __init__(self, chat_model):
         self.chat_model = chat_model
 
     def parse(self, text: str):

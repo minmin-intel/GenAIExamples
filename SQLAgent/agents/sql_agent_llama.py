@@ -122,8 +122,10 @@ class AgentNodeLlama:
         # self.tools = tool_renderer(tools)
         self.tools = tool_renderer_exclude_sql_query(tools)
         print("@@@@ Tools: ", self.tools)
-        output_parser=LlamaOutputParser(chat_model=self.llm)
-        self.chain= self.llm | output_parser
+        # output_parser=LlamaOutputParser()
+        # self.chain= self.llm | output_parser
+        self.chain = self.llm
+        self.output_parser = LlamaOutputParser(chat_model = self.llm)
 
         # for generating hints
         self.cols_descriptions, self.values_descriptions = generate_column_descriptions(db_name=args.db_name)
@@ -160,7 +162,8 @@ class AgentNodeLlama:
             )
         
         output = self.chain.invoke(prompt)
-        print("@@@@@ Agent output:\n", output)
+        parsed_output = self.output_parser.parse(output.content)
+        print("@@@@@ Agent output:\n", parsed_output)
 
         # convert output to tool calls
         tool_calls = []
