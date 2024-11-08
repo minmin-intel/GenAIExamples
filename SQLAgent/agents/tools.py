@@ -71,7 +71,7 @@ def get_database(path):
 #     return search.invoke(query)
 
 @tool
-def search_web(query: str)->str:
+def search_web_tavily(query: str)->str:
     '''Search the web for information not contained in databases.'''
     from tavily import TavilyClient
     import os
@@ -97,6 +97,25 @@ def search_web(query: str)->str:
         print(str(e))
 
     return ret_text
+
+
+@tool
+def search_web(query: str)->str:
+    '''Search the web for information not contained in databases.'''
+    from langchain_core.tools import Tool
+    from langchain_google_community import GoogleSearchAPIWrapper
+
+    search = GoogleSearchAPIWrapper()
+
+    tool = Tool(
+        name="google_search",
+        description="Search Google for recent results.",
+        func=search.run,
+    )
+
+    response = tool.run(query)
+    return response
+
 
 
 def get_tools(args, llm):
@@ -135,10 +154,12 @@ def get_tools_sql_agent(args):
 
 
 
-# if __name__ == "__main__":
-#     # print(get_table_info("schools, satscores, frpm"))
-#     print(get_column_description("schools", "Virtual"))
+if __name__ == "__main__":
+    # print(get_table_info("schools, satscores, frpm"))
+    # print(get_column_description("schools", "Virtual"))
     # print("====================================")
     # print(get_table_info("satscores"))
     # print("====================================")
     # print(get_table_info("frpm"))
+
+    print(search_web("California counties with population over 2 million"))

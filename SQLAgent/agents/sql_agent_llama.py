@@ -163,7 +163,7 @@ class AgentNodeLlama:
             )
         
         output = self.chain.invoke(prompt)
-        output = self.output_parser.parse(output.content, question, history)
+        output = self.output_parser.parse(output.content, history, table_schema, hints) #text: str, history: str, db_schema: str, hint: str
         print("@@@@@ Agent output:\n", output)
 
         # convert output to tool calls

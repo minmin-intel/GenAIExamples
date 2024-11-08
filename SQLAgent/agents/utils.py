@@ -155,11 +155,7 @@ You are an SQL database expert tasked with reviewing a SQL query.
 - Examine the table creation statements to understand the database structure.
 2. Review the Hint provided.
 - Use the provided hints to understand the domain knowledge relevant to the query.
-3. Analyze Query Requirements:
-- Original Question: Consider what information the query is supposed to retrieve.
-- Executed SQL Query: Review the SQL query that was previously executed.
-- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. Pay special attention to nulls.
-4. Check against the following common errors:
+3. Check against the following common errors:
 - Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 4. Correct the Query if Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
@@ -172,15 +168,17 @@ Table creation statements
 Hint:
 {HINT}
 **************************
-The original question is:
-Question:
-{QUESTION}
-The SQL query executed was:
+The SQL query to review:
 {QUERY}
-The execution result:
-{RESULT}
 **************************
-Now analyze the executed SQL query step by step. Present your reasonings. Fix the SQL query if any issues were identified. If the query is correct, just say the query is correct.
+Now analyze the SQL query step by step. Present your reasonings. 
+
+If you identified issues in the original query, write down the corrected SQL query in the format below:
+```sql
+SELECT column1, column2, ...
+``` 
+
+If the original SQL query is correct, just say the query is correct.
 """
 
 
@@ -202,30 +200,44 @@ def format_sql_queries(queries):
         formatted_queries += f"{i+1}.\n{q}\n"
     return formatted_queries
 
-def parse_and_fix_sql_query(question, text, chat_model):
-    sql_queries = get_all_sql_queries(text)
-    chosen_query = ""
-    if sql_queries:
-        # choose the most appropriate query
-        formatted_queries = format_sql_queries(sql_queries)
-        prompt = SQL_QUERY_PARSER_PROMPT.format(queries=formatted_queries, question=question)
+def get_the_last_sql_query(text):
+    queries = get_all_sql_queries(text)
+    if queries:
+        return queries[-1]
+    else:
+        return None
+    
+
+def parse_and_fix_sql_query(text, chat_model, db_schema, hint):
+    # sql_queries = get_all_sql_queries(text)
+    # if sql_queries:
+    #     chosen_query = sql_queries[-1]  # choose the last query
+        # # choose the most appropriate query
+        # formatted_queries = format_sql_queries(sql_queries)
+        # prompt = SQL_QUERY_PARSER_PROMPT.format(queries=formatted_queries, question=question)
+        # response = chat_model.invoke(prompt).content
+        # print("@@@ SQL query parser response: ", response)
+        # for char in response:
+        #     if char.isdigit():
+        #         if int(char) > len(sql_queries):
+        #             char = len(sql_queries)
+        #         idx = int(char) - 1
+        #         chosen_query = sql_queries[idx]
+        #         break
+
+    # first try to see if agent issued any SQL queries
+    # if yes, get the query and ask query fixer to review and fix it
+    chosen_query = get_the_last_sql_query(text)
+    if chosen_query:
+        prompt = SQL_QUERY_FIXER_PROMPT.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query)
         response = chat_model.invoke(prompt).content
-        print("@@@ SQL query parser response: ", response)
-        for char in response:
-            if char.isdigit():
-                idx = int(char) - 1
-                chosen_query = sql_queries[idx]
-                break
-        # if response.isdigit():
-        #     idx = int(response) - 1
-        #     chosen_query=sql_queries[idx]
-        # else:
-        #     for q in sql_queries:
-        #         if response.upper() in q.upper():
-        #             chosen_query = q
-        # check if the chosen query is correct with LLM - TODO
-        if chosen_query:
-            return chosen_query         
+        print("@@@ SQL query fixer response: ", response)
+        if "correct" in response.lower():
+            return chosen_query
+        else:
+            # parse the fixed query
+            fixed_query = get_the_last_sql_query(response)
+            return fixed_query           
     else:
         return None
 
@@ -234,7 +246,7 @@ class LlamaOutputParserAndQueryFixer:
     def __init__(self, chat_model):
         self.chat_model = chat_model
 
-    def parse(self, text: str, question: str, history: str):
+    def parse(self, text: str, history: str, db_schema: str, hint: str):
         print("@@@ Raw output from llm:\n", text)
         answer = parse_answer_with_llm(text, history, self.chat_model)
         if answer:
@@ -242,9 +254,10 @@ class LlamaOutputParserAndQueryFixer:
             return answer
         else:
             tool_calls = get_tool_calls_other_than_sql(text)
-            sql_query = parse_and_fix_sql_query(question, text, self.chat_model)
-            sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
-            tool_calls.extend(sql_tool_call)
+            sql_query = parse_and_fix_sql_query(text, self.chat_model, db_schema, hint)
+            if sql_query:
+                sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
+                tool_calls.extend(sql_tool_call)
             if tool_calls:
                 return tool_calls
             else:
