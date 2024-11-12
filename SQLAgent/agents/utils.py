@@ -36,6 +36,8 @@ def get_tool_calls_other_than_sql(text):
     """
     tool_calls = []
     json_lines = text.split("\n")
+    # only get the unique lines
+    json_lines = list(set(json_lines))
     for line in json_lines:
         if "TOOL CALL:" in line:
             if "sql_db_query" not in line:
@@ -232,7 +234,7 @@ def parse_and_fix_sql_query(text, chat_model, db_schema, hint):
         prompt = SQL_QUERY_FIXER_PROMPT.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query)
         response = chat_model.invoke(prompt).content
         print("@@@ SQL query fixer response: ", response)
-        if "correct" in response.lower():
+        if "query is correct" in response.lower():
             return chosen_query
         else:
             # parse the fixed query
