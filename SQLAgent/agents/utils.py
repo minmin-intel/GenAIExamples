@@ -159,7 +159,9 @@ You are an SQL database expert tasked with reviewing a SQL query.
 - Use the provided hints to understand the domain knowledge relevant to the query.
 3. Check against the following common errors:
 - Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
-4. Correct the Query if Necessary:
+4. Check if aggregation should be used:
+- Read the user question, and determine if user is asking for specific instances or aggregated info. If aggregation is needed, check if the original SQL query has used appropriate functions like COUNT and SUM.
+5. Correct the Query if Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
 
 ======= Your task =======
@@ -173,6 +175,10 @@ Hint:
 The SQL query to review:
 {QUERY}
 **************************
+User question:
+{QUESTION}
+**************************
+
 Now analyze the SQL query step by step. Present your reasonings. 
 
 If you identified issues in the original query, write down the corrected SQL query in the format below:
@@ -210,7 +216,7 @@ def get_the_last_sql_query(text):
         return None
     
 
-def parse_and_fix_sql_query(text, chat_model, db_schema, hint):
+def parse_and_fix_sql_query(text, chat_model, db_schema, hint, question):
     # sql_queries = get_all_sql_queries(text)
     # if sql_queries:
     #     chosen_query = sql_queries[-1]  # choose the last query
@@ -231,7 +237,7 @@ def parse_and_fix_sql_query(text, chat_model, db_schema, hint):
     # if yes, get the query and ask query fixer to review and fix it
     chosen_query = get_the_last_sql_query(text)
     if chosen_query:
-        prompt = SQL_QUERY_FIXER_PROMPT.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query)
+        prompt = SQL_QUERY_FIXER_PROMPT.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query, QUESTION=question)
         response = chat_model.invoke(prompt).content
         print("@@@ SQL query fixer response: ", response)
         if "query is correct" in response.lower():
@@ -248,7 +254,7 @@ class LlamaOutputParserAndQueryFixer:
     def __init__(self, chat_model):
         self.chat_model = chat_model
 
-    def parse(self, text: str, history: str, db_schema: str, hint: str):
+    def parse(self, text: str, history: str, db_schema: str, hint: str, question: str):
         print("@@@ Raw output from llm:\n", text)
         answer = parse_answer_with_llm(text, history, self.chat_model)
         if answer:
@@ -256,7 +262,7 @@ class LlamaOutputParserAndQueryFixer:
             return answer
         else:
             tool_calls = get_tool_calls_other_than_sql(text)
-            sql_query = parse_and_fix_sql_query(text, self.chat_model, db_schema, hint)
+            sql_query = parse_and_fix_sql_query(text, self.chat_model, db_schema, hint, question)
             if sql_query:
                 sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
                 tool_calls.extend(sql_tool_call)

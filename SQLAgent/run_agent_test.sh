@@ -19,4 +19,4 @@ python3 test_sql_agent.py \
 --debug \
 --kw_file $KWFILE \
 --llm_endpoint_url $LLM_ENDPOINT_URL \
---sql_llama | tee $OUTFOLDER/llama_v8_test_log.txt
+--sql_llama | tee $OUTFOLDER/llama_v9_test_log.txt
