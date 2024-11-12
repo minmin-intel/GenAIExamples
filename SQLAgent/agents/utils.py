@@ -113,10 +113,14 @@ def parse_answer_with_llm(text, history, chat_model):
         prompt = ANSWER_PARSER_PROMPT.format(output=text, history=history)
         response = chat_model.invoke(prompt).content
         print("@@@ Answer parser response: ", response)
-        if "yes" in response.lower():
-            return text.split("FINAL ANSWER:")[-1]
-        else:
+        # if "yes" in response.lower():
+        #     return text.split("FINAL ANSWER:")[-1]
+        # else:
+        #     return None
+        if "no" in response.lower():
             return None
+        else:
+            return text.split("FINAL ANSWER:")[-1]
     else:
         return None
 
@@ -151,7 +155,7 @@ Write down the number of the SQL query that you think is the most appropriate.
 """
 
 SQL_QUERY_FIXER_PROMPT = """\
-You are an SQL database expert tasked with reviewing a SQL query. 
+You are an SQL database expert tasked with reviewing a SQL query written by an agent. 
 **Procedure:**
 1. Review Database Schema:
 - Examine the table creation statements to understand the database structure.
@@ -161,8 +165,10 @@ You are an SQL database expert tasked with reviewing a SQL query.
 - Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 4. Check if aggregation should be used:
 - Read the user question, and determine if user is asking for specific instances or aggregated info. If aggregation is needed, check if the original SQL query has used appropriate functions like COUNT and SUM.
-5. Correct the Query if Necessary:
+5. Correct the Query only when Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
+- Note: Some user questions can only be answered partially with the database. This is OK. The agent will use other tools in subsequent steps to get additional info. Your goal is to write the correct SQL query to fetch the relevant data that is available in the database.
+- Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
 
 ======= Your task =======
 **************************
