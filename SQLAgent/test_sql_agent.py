@@ -228,7 +228,7 @@ if __name__ == "__main__":
         os.makedirs(args.output)
 
     # outfile = args.query_file.split("/")[-1].replace("query", "llama_test_result_{}".format(args.model))
-    outfile = "v9_test_results_llama.csv"
+    outfile = "v10_test_results_llama.csv"
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
     print("Results saved to: ", os.path.join(args.output, outfile))

@@ -15,13 +15,13 @@ from sentence_transformers import SentenceTransformer
 try:
     from .prompt_llama import *
     from .hint import generate_column_descriptions, pick_hints
-    from .utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history
+    from .utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history, remove_repeated_tool_calls
     from .utils import LlamaOutputParser, LlamaOutputParserAndQueryFixer
 
 except:
     from prompt_llama import *
     from hint import generate_column_descriptions, pick_hints
-    from utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history
+    from utils import convert_json_to_tool_call, assemble_history_with_feedback, assemble_history, remove_repeated_tool_calls
     from utils import LlamaOutputParser, LlamaOutputParserAndQueryFixer
 
 
@@ -173,8 +173,15 @@ class AgentNodeLlama:
                 tool_call = convert_json_to_tool_call(res)
                 tool_calls.append(tool_call)
 
-        if tool_calls:
-            ai_message = AIMessage(content="", tool_calls=tool_calls)
+        # check if same tool calls have been made before
+        # if yes, then remove the repeated tool calls
+        new_tool_calls = remove_repeated_tool_calls(tool_calls, state["messages"])
+        print("@@@@ New Tool Calls:\n", new_tool_calls)
+
+        if new_tool_calls:
+            ai_message = AIMessage(content="", tool_calls=new_tool_calls)
+        elif tool_calls:
+            ai_message = AIMessage(content="Repeated previous steps.", tool_calls=tool_calls)
         elif "answer" in output[0]:
             ai_message = AIMessage(content=str(output[0]["answer"]))
         else:
@@ -340,21 +347,23 @@ class SQLAgentLLAMA:
         workflow.set_entry_point("agent")
 
         # We now add a conditional edge
+        # workflow.add_conditional_edges(
+        #     "agent",
+        #     self.should_continue,
+        #     {
+        #         # If `tools`, then we call the tool node.
+        #         "continue": "tools",
+        #         "end": END,
+        #     },
+        # )
+
         workflow.add_conditional_edges(
-            # First, we define the start node. We use `agent`.
-            # This means these are the edges taken after the `agent` node is called.
             "agent",
-            # Next, we pass in the function that will determine which node is called next.
-            self.should_continue,
-            # Finally we pass in a mapping.
-            # The keys are strings, and the values are other nodes.
-            # END is a special node marking that the graph should finish.
-            # What will happen is we will call `should_continue`, and then the output of that
-            # will be matched against the keys in this mapping.
-            # Based on which one it matches, that node will then be called.
+            self.decide_next_step,
             {
                 # If `tools`, then we call the tool node.
-                "continue": "tools",
+                "tools": "tools",
+                "agent": "agent",
                 "end": END,
             },
         )
@@ -376,6 +385,16 @@ class SQLAgentLLAMA:
         # Otherwise if there is, we continue
         else:
             return "continue"
+        
+    def decide_next_step(self, state: AgentState):
+        messages = state["messages"]
+        last_message = messages[-1]
+        if last_message.tool_calls and last_message.content == "Repeated previous steps.":
+            return "agent"
+        elif last_message.tool_calls and last_message.content != "Repeated previous steps.":
+            return "tools"
+        else:
+            return "end"
     
     def prepare_initial_state(self, query):
         return {"messages": [HumanMessage(content=query)], "is_last_step": IsLastStep(False), "hint": ""}

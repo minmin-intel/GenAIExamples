@@ -5,6 +5,26 @@ from langchain_core.output_parsers import BaseOutputParser
 from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
 
 
+def remove_repeated_tool_calls(tool_calls, messages):
+    """
+    Remove repeated tool calls in the messages.
+    tool_calls: list of tool calls: ToolCall(name=tool_name, args=tool_args, id=tcid)
+    messages: list of messages: AIMessage, ToolMessage, HumanMessage
+    """
+    # first get all the previous tool calls in messages
+    previous_tool_calls = []
+    for m in messages:
+        if isinstance(m, ToolMessage):
+            previous_tool_calls.append({"tool": m.tool_call.name, "args": m.tool_call.args})
+    
+    unique_tool_calls = []
+    for tc in tool_calls:
+        if {"tool": tc.name, "args": tc.args} not in previous_tool_calls:
+            unique_tool_calls.append(tc)
+
+    return unique_tool_calls
+
+
 def parse_sql_query(line):
     # sql_db_query - {'query': "SELECT T1…”}
     temp = line.split("sql_db_query - ")[-1]
@@ -35,6 +55,7 @@ def get_tool_calls_other_than_sql(text):
     get the tool calls other than sql_db_query
     """
     tool_calls = []
+    text = text.replace("assistant", "")
     json_lines = text.split("\n")
     # only get the unique lines
     json_lines = list(set(json_lines))
@@ -83,7 +104,7 @@ def parse_answer(text):
                 return None
     return None
 
-ANSWER_PARSER_PROMPT = """\
+ANSWER_PARSER_PROMPT_v1 = """\
 Review the output from an SQL agent and determine if a correct answer has been provided and grounded on real data. 
 
 Say "yes" when all the following conditions are met:
@@ -104,12 +125,33 @@ Here is the agent execution history:
 Has a final answer been provided based on real data? Analyze the agent output and make your judgement "yes" or "no".
 """
 
+ANSWER_PARSER_PROMPT = """\
+Review the output from an SQL agent and determine if a correct answer has been provided and grounded on real data. 
+
+Say "yes" when all the following conditions are met:
+1. The answer is complete and does not require additional steps to be taken.
+2. The answer does not have placeholders that need to be filled in.
+3. The agent has acquired data from database and its execution history is Not empty.
+4. The answer is based on data.
+
+If the conditions above are not met, say "no".
+
+Here is the output from the SQL agent:
+{output}
+======================
+Here is the agent execution history:
+{history}
+======================
+
+Has a final answer been provided based on real data? Analyze the agent output and make your judgement "yes" or "no".
+"""
+
 def parse_answer_with_llm(text, history, chat_model):
     if "FINAL ANSWER:" in text.upper():
         if history == "":
             history = "The agent execution history is empty."
-        else:
-            history = "Agent has acquired data from database."
+        # else:
+        #     history = "Agent has acquired data from database."
         prompt = ANSWER_PARSER_PROMPT.format(output=text, history=history)
         response = chat_model.invoke(prompt).content
         print("@@@ Answer parser response: ", response)
@@ -117,10 +159,11 @@ def parse_answer_with_llm(text, history, chat_model):
         #     return text.split("FINAL ANSWER:")[-1]
         # else:
         #     return None
-        if "no" in response.lower():
-            return None
-        else:
+        temp = response[:5]
+        if "yes" in temp.lower():
             return text.split("FINAL ANSWER:")[-1]
+        else:
+            return None
     else:
         return None
 
@@ -421,7 +464,7 @@ Steps taken:
 Your summary:
 """
 
-def assemble_history(messages):
+def assemble_history_v1(messages):
     """
     messages: AI, TOOL, AI, TOOL, etc.
     """
@@ -444,6 +487,37 @@ def assemble_history(messages):
                         query_history += f"Step {n}. Called tool: {tool} - {tc_args}\nTool Output: {tool_output}\n{breaker}\n"
                     n += 1
     
+            else:
+                # did not make tool calls
+                query_history += f"Assistant Output: {m.content}\n"
+        
+    return query_history
+
+def assemble_history(messages):
+    """
+    messages: AI, TOOL, AI, TOOL, etc.
+    """
+    query_history = ""
+    breaker = "-" * 10
+    n = 1
+    for m in messages[1:]:  # exclude the first message
+        if isinstance(m, AIMessage):
+            # if there is tool call
+            if hasattr(m, "tool_calls") and len(m.tool_calls) > 0 and m.content != "Repeated previous steps.":
+                for tool_call in m.tool_calls:
+                    tool = tool_call["name"]
+                    tc_args = tool_call["args"]
+                    id = tool_call["id"]
+                    tool_output = get_tool_output(messages, id)
+                    if tool == "sql_db_query":
+                        sql_query = tc_args["query"]
+                        query_history += f"Step {n}. Executed SQL query: {sql_query}\nQuery Result: {tool_output}\n{breaker}\n"
+                    else:
+                        query_history += f"Step {n}. Called tool: {tool} - {tc_args}\nTool Output: {tool_output}\n{breaker}\n"
+                    n += 1
+            elif m.content == "Repeated previous steps.":  # repeated steps
+                query_history += f"Step {n}. Repeated tool calls from previous steps.\n{breaker}\n"
+                n += 1
             else:
                 # did not make tool calls
                 query_history += f"Assistant Output: {m.content}\n"
