@@ -175,8 +175,11 @@ class AgentNodeLlama:
 
         # check if same tool calls have been made before
         # if yes, then remove the repeated tool calls
-        new_tool_calls = remove_repeated_tool_calls(tool_calls, state["messages"])
-        print("@@@@ New Tool Calls:\n", new_tool_calls)
+        if tool_calls:
+            new_tool_calls = remove_repeated_tool_calls(tool_calls, state["messages"])
+            print("@@@@ New Tool Calls:\n", new_tool_calls)
+        else:
+            new_tool_calls = []
 
         if new_tool_calls:
             ai_message = AIMessage(content="", tool_calls=new_tool_calls)
@@ -390,8 +393,10 @@ class SQLAgentLLAMA:
         messages = state["messages"]
         last_message = messages[-1]
         if last_message.tool_calls and last_message.content == "Repeated previous steps.":
+            print("@@@@ Repeated tool calls from previous steps, go back to agent")
             return "agent"
         elif last_message.tool_calls and last_message.content != "Repeated previous steps.":
+            print("@@@@ New Tool calls, go to tools")
             return "tools"
         else:
             return "end"

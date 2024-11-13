@@ -14,12 +14,13 @@ def remove_repeated_tool_calls(tool_calls, messages):
     # first get all the previous tool calls in messages
     previous_tool_calls = []
     for m in messages:
-        if isinstance(m, ToolMessage):
-            previous_tool_calls.append({"tool": m.tool_call.name, "args": m.tool_call.args})
+        if isinstance(m, AIMessage) and m.tool_calls and m.content != "Repeated previous steps.":
+            for tc in m.tool_calls:
+                previous_tool_calls.append({"tool": tc["name"], "args": tc["args"]})
     
     unique_tool_calls = []
     for tc in tool_calls:
-        if {"tool": tc.name, "args": tc.args} not in previous_tool_calls:
+        if {"tool": tc["name"], "args": tc["args"]} not in previous_tool_calls:
             unique_tool_calls.append(tc)
 
     return unique_tool_calls
