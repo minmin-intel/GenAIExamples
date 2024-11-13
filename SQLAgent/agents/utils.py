@@ -133,7 +133,8 @@ Say "yes" when all the following conditions are met:
 1. The answer is complete and does not require additional steps to be taken.
 2. The answer does not have placeholders that need to be filled in.
 3. The agent has acquired data from database and its execution history is Not empty.
-4. The answer is based on data.
+4. If agent made mistakes in its execution history, the agent has corrected them.
+5. If agent has tried to get data several times but cannot get all the data needed, the agent has come up with an answer based on available data and reasonable assumptions.
 
 If the conditions above are not met, say "no".
 
@@ -164,6 +165,9 @@ def parse_answer_with_llm(text, history, chat_model):
         if "yes" in temp.lower():
             return text.split("FINAL ANSWER:")[-1]
         else:
+            temp = response.split("\n")[0]
+            if "yes" in temp.lower():
+                return text.split("FINAL ANSWER:")[-1]
             return None
     else:
         return None
@@ -211,8 +215,6 @@ You are an SQL database expert tasked with reviewing a SQL query written by an a
 - Read the user question, and determine if user is asking for specific instances or aggregated info. If aggregation is needed, check if the original SQL query has used appropriate functions like COUNT and SUM.
 5. Correct the Query only when Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
-- Note: Some user questions can only be answered partially with the database. This is OK. The agent will use other tools in subsequent steps to get additional info. Your goal is to write the correct SQL query to fetch the relevant data that is available in the database.
-- Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
 
 ======= Your task =======
 **************************
@@ -237,6 +239,9 @@ SELECT column1, column2, ...
 ``` 
 
 If the original SQL query is correct, just say the query is correct.
+
+Note: Some user questions can only be answered partially with the database. This is OK. The agent may use other tools in subsequent steps to get additional info. In some cases, the agent may have got additional info with other tools and have incorporated those in its query. Your goal is to review the SQL query and fix it when necessary.
+Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
 """
 
 SQL_QUERY_FIXER_PROMPT_with_result = """\
@@ -254,8 +259,6 @@ You are an SQL database expert tasked with reviewing a SQL query.
 - Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 5. Correct the Query only when Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
-- Note: Some user questions can only be answered partially with the database. This is OK. The agent will use other tools in subsequent steps to get additional info. Your goal is to write the correct SQL query to fetch the relevant data that is available in the database.
-- Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
 
 ======= Your task =======
 **************************
@@ -283,6 +286,9 @@ SELECT column1, column2, ...
 ``` 
 
 If the original SQL query is correct, just say the query is correct.
+
+Note: Some user questions can only be answered partially with the database. This is OK. The agent may use other tools in subsequent steps to get additional info. In some cases, the agent may have got additional info with other tools and have incorporated those in its query. Your goal is to review the SQL query and fix it when necessary.
+Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
 """
 
 def get_all_sql_queries(text):
@@ -631,60 +637,60 @@ def assemble_history_with_feedback(messages, chat_model):
     return query_history
 
 if __name__ == "__main__":
-    import os
-    from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool
-    from langchain_community.utilities import SQLDatabase
+#     import os
+#     from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool
+#     from langchain_community.utilities import SQLDatabase
 
-    db_name = "california_schools"
-    working_dir = os.getenv("WORKDIR")
-    DBPATH=f"{working_dir}/TAG-Bench/dev_folder/dev_databases/{db_name}/{db_name}.sqlite"
-    uri= "sqlite:///{path}".format(path=DBPATH)
-    db = SQLDatabase.from_uri(uri)
-    query_sql_database_tool_description = (
-            "Input to this tool is a detailed and correct SQL query, output is a "
-            "result from the database. If the query is not correct, an error message "
-            "will be returned. If an error is returned, rewrite the query, check the "
-            "query, and try again. "
-        )
-    db_query_tool = QuerySQLDataBaseTool(db=db, description=query_sql_database_tool_description)
-    # test
+#     db_name = "california_schools"
+#     working_dir = os.getenv("WORKDIR")
+#     DBPATH=f"{working_dir}/TAG-Bench/dev_folder/dev_databases/{db_name}/{db_name}.sqlite"
+#     uri= "sqlite:///{path}".format(path=DBPATH)
+#     db = SQLDatabase.from_uri(uri)
+#     query_sql_database_tool_description = (
+#             "Input to this tool is a detailed and correct SQL query, output is a "
+#             "result from the database. If the query is not correct, an error message "
+#             "will be returned. If an error is returned, rewrite the query, check the "
+#             "query, and try again. "
+#         )
+#     db_query_tool = QuerySQLDataBaseTool(db=db, description=query_sql_database_tool_description)
+#     # test
 
-#     #passed
-    text = """\
-To answer this question, we need to find the school with the lowest average score in reading in Southern California and then retrieve its telephone number.
+# #     #passed
+#     text = """\
+# To answer this question, we need to find the school with the lowest average score in reading in Southern California and then retrieve its telephone number.
 
-First, let's identify the schools in Southern California. Southern California includes the following counties: Los Angeles, Orange, San Diego, San Bernardino, Riverside, Ventura, Santa Barbara, San Luis Obispo, Kern, and Imperial.
+# First, let's identify the schools in Southern California. Southern California includes the following counties: Los Angeles, Orange, San Diego, San Bernardino, Riverside, Ventura, Santa Barbara, San Luis Obispo, Kern, and Imperial.
 
-We can use the `schools` table to filter the schools by county. However, we need to join this table with the `satscores` table to get the average scores in reading.
+# We can use the `schools` table to filter the schools by county. However, we need to join this table with the `satscores` table to get the average scores in reading.
 
-Here's the query to get the schools in Southern California with their average scores in reading:
+# Here's the query to get the schools in Southern California with their average scores in reading:
 
-```sql
-SELECT T1.cds, T1.AvgScrRead, T2.Phone 
-FROM satscores AS T1 
-```
+# ```sql
+# SELECT T1.cds, T1.AvgScrRead, T2.Phone 
+# FROM satscores AS T1 
+# ```
 
-This query joins the `satscores` table with the `schools` table on the `cds` column and filters the results to include only schools in Southern California.
+# This query joins the `satscores` table with the `schools` table on the `cds` column and filters the results to include only schools in Southern California.
 
-However, we need to find the school with the lowest average score in reading. We can use the `ORDER BY` clause to sort the results by the average score in reading in ascending order and then use the `LIMIT` clause to get the first row, which corresponds to the school with the lowest average score.
+# However, we need to find the school with the lowest average score in reading. We can use the `ORDER BY` clause to sort the results by the average score in reading in ascending order and then use the `LIMIT` clause to get the first row, which corresponds to the school with the lowest average score.
 
-Here's the updated query:
+# Here's the updated query:
 
-```sql
-SELECT T1.cds, T1.AvgScrRead, T2.Phone 
-FROM satscores AS T1 
-INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode 
-WHERE T2.County IN ('Los Angeles', 'Orange', 'San Diego', 'San Bernardino', 'Riverside', 'Ventura', 'Santa Barbara', 'San Luis Obispo', 'Kern', 'Imperial') 
-ORDER BY T1.AvgScrRead ASC LIMIT 1;
-```
+# ```sql
+# SELECT T1.cds, T1.AvgScrRead, T2.Phone 
+# FROM satscores AS T1 
+# INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode 
+# WHERE T2.County IN ('Los Angeles', 'Orange', 'San Diego', 'San Bernardino', 'Riverside', 'Ventura', 'Santa Barbara', 'San Luis Obispo', 'Kern', 'Imperial') 
+# ORDER BY T1.AvgScrRead ASC LIMIT 1;
+# ```
 
-This query will give us the school with the lowest average score in reading in Southern California and its telephone number.
+# This query will give us the school with the lowest average score in reading in Southern California and its telephone number.
 
-```sql
-TOOL CALL: {"tool": "search_web", "args": {"query": "most popular cities to visit among Oakland, Hayward, Newark, Fremont, Union City, San Leandro, Berkeley,Alameda, Pleasanton, Dublin"}}
-```
-Let's execute this query and get the result.
-    """
+# ```sql
+# TOOL CALL: {"tool": "search_web", "args": {"query": "most popular cities to visit among Oakland, Hayward, Newark, Fremont, Union City, San Leandro, Berkeley,Alameda, Pleasanton, Dublin"}}
+# ```
+# Let's execute this query and get the result.
+#     """
 
     
     # parser = LlamaOutputParser()
@@ -697,28 +703,39 @@ Let's execute this query and get the result.
     #     else:
     #         print(x)
 
-    query_list = get_all_sql_queries(text)
-    print(query_list)
-    formatted_queries = format_sql_queries(query_list)
-    print(formatted_queries)
+    # query_list = get_all_sql_queries(text)
+    # print(query_list)
+    # formatted_queries = format_sql_queries(query_list)
+    # print(formatted_queries)
 
-    response = """
-The most likely SQL query to provide the correct answer to the user question is:
+    
+    response = """\
+Based on the provided output, I would say "yes". Here's why:
+1. The answer is complete and does not require additional steps to be taken. The agent has provided a final answer of 239342, which is the total number of te
+st takers in counties with a population over 2 million.
 
-3.
+2. The answer does not have placeholders that need to be filled in. The final answer is a concrete number.
 
-This query first joins the `satscores` table with the `schools` table to get the city and county information for each school. It then filters the results to
-include only schools with an average math score over 560. Finally, it counts the number of schools in the Bay Area (defined as the counties 'Alameda', 'Contr
-a Costa', 'Marin', 'Napa', 'San Francisco', 'San Mateo', 'Santa Clara', 'Solano', 'Sonoma').
+3. The agent has acquired data from the database, and its execution history is not empty. The agent has executed multiple SQL queries to gather the required
+data.
 
-Query 1 does not provide the location information, so it cannot answer the question. Query 2 provides the location information, but it does not count the num
-ber of schools in the Bay Area.
+4. If the agent made mistakes in its execution history, it has corrected them. The agent initially encountered errors due to non-existent tables, but it even
+tually found a working approach in Step 6.
 
+5. If the agent has tried to get data several times but cannot get all the data needed, the agent has come up with an answer based on available data and reas
+onable assumptions. The agent did not have access to population data, but it used the number of test takers as a proxy to estimate the counties with a popula
+tion over 2 million.
 """
-
-    for char in response:
-        if char.isdigit():
-            idx = int(char) - 1
-            print(idx)
-            break
+    print(response)
+    temp = response[:5]
+    print(temp)
+    if "yes" in temp.lower():
+        print("FINAL ANSWER found")
+    else:
+        temp = response.split("\n")[0]
+        print(temp)
+        if "yes" in temp.lower():
+            print("FINAL ANSWER found")
+        else:
+            print("No final answer.")
      
