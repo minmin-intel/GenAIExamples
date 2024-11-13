@@ -239,6 +239,51 @@ SELECT column1, column2, ...
 If the original SQL query is correct, just say the query is correct.
 """
 
+SQL_QUERY_FIXER_PROMPT_with_result = """\
+You are an SQL database expert tasked with reviewing a SQL query. 
+**Procedure:**
+1. Review Database Schema:
+- Examine the table creation statements to understand the database structure.
+2. Review the Hint provided.
+- Use the provided hints to understand the domain knowledge relevant to the query.
+3. Analyze Query Requirements:
+- User Question: Consider what information the query is supposed to retrieve. Decide if aggregation like COUNT or SUM is needed.
+- Executed SQL Query: Review the SQL query that was previously executed.
+- Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. 
+4. Check against the following common errors:
+- Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
+5. Correct the Query only when Necessary:
+- If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
+- Note: Some user questions can only be answered partially with the database. This is OK. The agent will use other tools in subsequent steps to get additional info. Your goal is to write the correct SQL query to fetch the relevant data that is available in the database.
+- Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
+
+======= Your task =======
+**************************
+Table creation statements
+{DATABASE_SCHEMA}
+**************************
+Hint:
+{HINT}
+**************************
+User Question:
+{QUESTION}
+**************************
+The SQL query executed was:
+{QUERY}
+**************************
+The execution result:
+{RESULT}
+**************************
+
+Now analyze the SQL query step by step. Present your reasonings. 
+
+If you identified issues in the original query, write down the corrected SQL query in the format below:
+```sql
+SELECT column1, column2, ...
+``` 
+
+If the original SQL query is correct, just say the query is correct.
+"""
 
 def get_all_sql_queries(text):
     queries = []
@@ -267,24 +312,6 @@ def get_the_last_sql_query(text):
     
 
 def parse_and_fix_sql_query(text, chat_model, db_schema, hint, question):
-    # sql_queries = get_all_sql_queries(text)
-    # if sql_queries:
-    #     chosen_query = sql_queries[-1]  # choose the last query
-        # # choose the most appropriate query
-        # formatted_queries = format_sql_queries(sql_queries)
-        # prompt = SQL_QUERY_PARSER_PROMPT.format(queries=formatted_queries, question=question)
-        # response = chat_model.invoke(prompt).content
-        # print("@@@ SQL query parser response: ", response)
-        # for char in response:
-        #     if char.isdigit():
-        #         if int(char) > len(sql_queries):
-        #             char = len(sql_queries)
-        #         idx = int(char) - 1
-        #         chosen_query = sql_queries[idx]
-        #         break
-
-    # first try to see if agent issued any SQL queries
-    # if yes, get the query and ask query fixer to review and fix it
     chosen_query = get_the_last_sql_query(text)
     if chosen_query:
         prompt = SQL_QUERY_FIXER_PROMPT.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query, QUESTION=question)
@@ -299,12 +326,49 @@ def parse_and_fix_sql_query(text, chat_model, db_schema, hint, question):
     else:
         return None
 
+def check_query_if_executed_and_result(query, messages):
+    # get previous sql_db_query tool calls
+    previous_tool_calls = []
+    for m in messages:
+        if isinstance(m, AIMessage) and m.tool_calls:
+            for tc in m.tool_calls:
+                if tc["name"] == "sql_db_query":
+                    previous_tool_calls.append(tc)
+    for tc in previous_tool_calls:
+        if query == tc["args"]["query"]:
+            return get_tool_output(messages, tc["id"])
+        
+    return None
+
+
+def parse_and_fix_sql_query_v2(text, chat_model, db_schema, hint, question, messages):
+    chosen_query = get_the_last_sql_query(text)
+    if chosen_query:
+        # check if the query has been executed before
+        # if yes, pass execution result to the fixer
+        # if not, pass the query to the fixer
+        result = check_query_if_executed_and_result(chosen_query, messages)
+        if result:
+            prompt = SQL_QUERY_FIXER_PROMPT_with_result.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query, QUESTION=question, RESULT=result)
+        else:
+            prompt = SQL_QUERY_FIXER_PROMPT.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query, QUESTION=question)
+        
+        response = chat_model.invoke(prompt).content
+        print("@@@ SQL query fixer response: ", response)
+        if "query is correct" in response.lower():
+            return chosen_query
+        else:
+            # parse the fixed query
+            fixed_query = get_the_last_sql_query(response)
+            return fixed_query           
+    else:
+        return None
 
 class LlamaOutputParserAndQueryFixer:
     def __init__(self, chat_model):
         self.chat_model = chat_model
 
-    def parse(self, text: str, history: str, db_schema: str, hint: str, question: str):
+    def parse(self, text: str, history: str, db_schema: str, hint: str, question: str, messages: list):
         print("@@@ Raw output from llm:\n", text)
         answer = parse_answer_with_llm(text, history, self.chat_model)
         if answer:
@@ -312,7 +376,7 @@ class LlamaOutputParserAndQueryFixer:
             return answer
         else:
             tool_calls = get_tool_calls_other_than_sql(text)
-            sql_query = parse_and_fix_sql_query(text, self.chat_model, db_schema, hint, question)
+            sql_query = parse_and_fix_sql_query_v2(text, self.chat_model, db_schema, hint, question, messages)
             if sql_query:
                 sql_tool_call = [{"tool": "sql_db_query", "args": {"query": sql_query}}]
                 tool_calls.extend(sql_tool_call)

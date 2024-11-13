@@ -142,7 +142,8 @@ if __name__ == "__main__":
         system_message = SystemMessage(content=V10_SYSM)
     elif args.sql_llama:
         from agents.tools import get_tools_sql_agent
-        tools = get_tools_sql_agent(args)
+        # tools = get_tools_sql_agent(args)
+        tools = [get_tools_sql_agent(args)[0]]
     else:
         tools = get_tools(args, llm)
         system_message = SystemMessage(content=V6_SYSM)
@@ -183,10 +184,10 @@ if __name__ == "__main__":
     df = pd.read_csv(args.query_file)
     
     query= [
-        "What is the telephone number for the school with the lowest average score in reading in Southern California?",
-        # "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
+        # "What is the telephone number for the school with the lowest average score in reading in Southern California?",
+        "Please list the top three continuation schools with the lowest eligible free rates for students aged 5-17 and rank them based on the overall affordability of their respective cities.",
         # "Of the cities containing exclusively virtual schools which are the top 3 safest places to live?",
-        # "How many test takers are there at the school/s in a county with population over 2 million?",
+        "How many test takers are there at the school/s in a county with population over 2 million?",
         # "What are the two most common first names among the female school administrators?",
         # "Among the cities with the top 10 lowest enrollment for students in grades 1 through 12, which are the top 2 most popular cities to visit?",
         # "Of the schools with the top 3 SAT excellence rate, which county of the schools has the strongest academic reputation?",
@@ -194,7 +195,7 @@ if __name__ == "__main__":
         # "Summarize the qualities of the schools with an average score in Math under 600 in the SAT test and are exclusively virtual.",
         # "List the cities containing the top 5 most enrolled schools in order from most diverse to least diverse. ",
         ]
-    #df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
+    df = pd.DataFrame({"Query": query, "Answer": ["no answer"]*len(query)})
 
     recursion_limit = 15
     results = []
@@ -228,7 +229,7 @@ if __name__ == "__main__":
         os.makedirs(args.output)
 
     # outfile = args.query_file.split("/")[-1].replace("query", "llama_test_result_{}".format(args.model))
-    outfile = "v10_test_results_llama.csv"
+    outfile = "v11_test_results_llama.csv"
     df.to_csv(os.path.join(args.output, outfile), index=False)
 
     print("Results saved to: ", os.path.join(args.output, outfile))
