@@ -298,8 +298,9 @@ You can access a database that has {num_tables} tables. The schema of the tables
 
 When querying the database, remember the following:
 1. Unless the user specifies a specific number of examples they wish to obtain, always limit your query to no more than 20 results.
-2. Only query columns that are relevant to the question. Remember to also fetch the ranking or filtering columns to check if they contain nulls.
-3. DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+2. Only query columns that are relevant to the question. 
+3. Filter out any NULL values in the columns using WHERE clause.
+4. DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
 
 **Output format:**
 1. Write down your thinking process.

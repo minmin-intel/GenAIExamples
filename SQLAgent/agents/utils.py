@@ -215,6 +215,7 @@ You are an SQL database expert tasked with reviewing a SQL query written by an a
 - Read the user question, and determine if user is asking for specific instances or aggregated info. If aggregation is needed, check if the original SQL query has used appropriate functions like COUNT and SUM.
 5. Correct the Query only when Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
+- Make sure to exclude null values using WHERE clause.
 
 ======= Your task =======
 **************************
@@ -260,6 +261,7 @@ You are an SQL database expert tasked with reviewing a SQL query.
 - Failure to exclude null values, ranking or filtering columns have nulls, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 5. Correct the Query only when Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
+- Make sure to exclude null values using WHERE clause.
 
 ======= Your task =======
 **************************
@@ -357,8 +359,10 @@ def parse_and_fix_sql_query_v2(text, chat_model, db_schema, hint, question, mess
         # if not, pass the query to the fixer
         result = check_query_if_executed_and_result(chosen_query, messages)
         if result:
+            print("@@@ SQL query has been executed before. Go to fixer with result.")
             prompt = SQL_QUERY_FIXER_PROMPT_with_result.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query, QUESTION=question, RESULT=result)
         else:
+            print("@@@ New SQL query. Go to fixer without result.")
             prompt = SQL_QUERY_FIXER_PROMPT.format(DATABASE_SCHEMA=db_schema, HINT=hint, QUERY=chosen_query, QUESTION=question)
         
         response = chat_model.invoke(prompt).content
