@@ -210,7 +210,7 @@ You are an SQL database expert tasked with reviewing a SQL query written by an a
 2. Review the Hint provided.
 - Use the provided hints to understand the domain knowledge relevant to the query.
 3. Check against the following common errors:
-- Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
+- Failure to exclude null values, ranking or filtering columns have nulls, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 4. Check if aggregation should be used:
 - Read the user question, and determine if user is asking for specific instances or aggregated info. If aggregation is needed, check if the original SQL query has used appropriate functions like COUNT and SUM.
 5. Correct the Query only when Necessary:
@@ -242,6 +242,7 @@ If the original SQL query is correct, just say the query is correct.
 
 Note: Some user questions can only be answered partially with the database. This is OK. The agent may use other tools in subsequent steps to get additional info. In some cases, the agent may have got additional info with other tools and have incorporated those in its query. Your goal is to review the SQL query and fix it when necessary.
 Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
+If you cannot do better than the original query, just say the query is correct.
 """
 
 SQL_QUERY_FIXER_PROMPT_with_result = """\
@@ -256,7 +257,7 @@ You are an SQL database expert tasked with reviewing a SQL query.
 - Executed SQL Query: Review the SQL query that was previously executed.
 - Execution Result: Analyze the outcome of the executed query. Think carefully if the result makes sense. 
 4. Check against the following common errors:
-- Failure to exclude null values, syntax errors, incorrect table references, incorrect column references, logical mistakes.
+- Failure to exclude null values, ranking or filtering columns have nulls, syntax errors, incorrect table references, incorrect column references, logical mistakes.
 5. Correct the Query only when Necessary:
 - If issues were identified, modify the SQL query to address the identified issues, ensuring it correctly fetches the requested data according to the database schema and query requirements.
 
@@ -289,6 +290,7 @@ If the original SQL query is correct, just say the query is correct.
 
 Note: Some user questions can only be answered partially with the database. This is OK. The agent may use other tools in subsequent steps to get additional info. In some cases, the agent may have got additional info with other tools and have incorporated those in its query. Your goal is to review the SQL query and fix it when necessary.
 Only use the tables provided in the database schema in your corrected query. Do not join tables that are not present in the schema. Do not create any new tables.
+If you cannot do better than the original query, just say the query is correct.
 """
 
 def get_all_sql_queries(text):
