@@ -18,7 +18,7 @@ Here're some of the project's features:
 2. cd command to the current folder.
 
    ```
-   cd AgentQnA/ui/svelte
+   cd AgentQnA/ui/
    ```
 
 3. Modify the required .env variables.
@@ -47,8 +47,9 @@ Here're some of the project's features:
 
 - Build the Docker image:
 
-  ```
-  docker build -t opea:agent-ui .
+  ```bash
+  # inside AgentQnA/ui/
+  docker build -t opea:agent-ui -f docker/Dockerfile .
   ```
 
 - Run the Docker container:

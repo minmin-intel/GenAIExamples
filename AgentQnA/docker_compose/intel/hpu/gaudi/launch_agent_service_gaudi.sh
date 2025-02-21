@@ -33,4 +33,4 @@ export CRAG_SERVER=http://${ip_address}:8080
 export db_name=Chinook
 export db_path="sqlite:////home/user/chinook-db/Chinook_Sqlite.sqlite"
 
-docker compose -f compose.yaml up -d
+docker compose -f compose_react.yaml up -d

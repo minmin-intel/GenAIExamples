@@ -6,6 +6,25 @@ import os
 import requests
 from tools.pycragapi import CRAG
 
+def search_web(query: str)->str:
+    '''Search the web for information not contained in databases.'''
+    from langchain_core.tools import Tool
+    from langchain_google_community import GoogleSearchAPIWrapper
+
+    search = GoogleSearchAPIWrapper()
+
+    tool = Tool(
+        name="google_search",
+        description="Search Google for recent results.",
+        func=search.run,
+    )
+
+    response = tool.run(query)
+    return response
+
+if __name__ == "__main__":
+    print(search_web('Who is the lead singer of the band Queen?'))
+
 
 def search_knowledge_base(query: str) -> str:
     """Search a knowledge base about music and singers for a given query.
