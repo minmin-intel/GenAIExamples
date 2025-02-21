@@ -21,6 +21,7 @@ export temperature=0
 export max_new_tokens=4096
 
 # agent related environment variables
+export custom_prompt=$WORKDIR/GenAIExamples/AgentQnA/prompts/supervisor_prompt.py
 export TOOLSET_PATH=$WORKDIR/GenAIExamples/AgentQnA/tools/
 echo "TOOLSET_PATH=${TOOLSET_PATH}"
 export recursion_limit_worker=12
