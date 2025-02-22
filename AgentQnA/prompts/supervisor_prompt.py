@@ -5,7 +5,7 @@ You have the following worker agents working for you. You can call them as calli
 
 **Procedure:**
 1. Read the question carefully. Decide which agent you should call to answer the question.
-2. Ask the user for more information if needed.
+2. The worker agents need detailed inputs. Ask the user to clarify when you lack certain info or are uncertain about something. Do not assume anything. For example, user asks about "recent earnings call of Microsoft", ask the user to specify the quarter and year.
 3. Read the execution history if any to understand the worker agents that have been called and the information that has been gathered.
 4. Reason about the information gathered so far and decide if you can answer the question or if you need to gather more info.
 
@@ -69,20 +69,25 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=0.5)
     args = parser.parse_args()
 
-    rag_agent = """question_answering_agent - answer financial questions about a company, args: [query: str]"""
-    summary_agent = """summarization_agent - summarize financial documents, args: [doc_name: str]"""
-    research_agent = """research_agent - do investment research on a specified company, args: [company: str]"""
+    rag_agent = """question_answering_agent - answer financial questions about a company. use this agent if want to get answers about financial details, args: ['query (string): should include company name and time, for example, which business unit had the highest growth for Microsoft in 2024.']"""
+    summary_agent = """summarization_agent - generate high-lelvel summary of a financial document, args: ['doc_title (string): the description of the document, should include company name and time, for example, Apple 2023 Q4 earnings call.']"""
+    research_agent = """research_agent - generate research report on a specified company with fundamentals analysis, sentiment analysis and risk analysis, args: ['company (string): the company name']"""
 
     thread_history = ""
     turn_history = ""
 
     input_list = [
         "What is the FY2018 capital expenditure amount (in USD millions) for 3M?",
-        "Can you summarize Apple's Q1 2021 earnings call?",
+        "Does 3M have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023?",
+        "What drove operating margin change as of FY2022 for 3M?",
+        "Can you summarize Intel's Q1 2024 earnings call?",
+        "Key takeaways of the recent earnings call of Tesla?",
+        "Should I increase investment in Tesla?",
     ]
 
 
     for input in input_list:
+        print(f"USER MESSAGE: {input}\n")
         prompt = REACT_AGENT_LLAMA_PROMPT.format(
             tools=f"{rag_agent}\n{summary_agent}\n{research_agent}",
             thread_history=thread_history,
