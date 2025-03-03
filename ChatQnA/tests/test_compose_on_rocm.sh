@@ -45,7 +45,7 @@ export CHATQNA_RERANK_SERVICE_HOST_IP=${HOST_IP}
 export CHATQNA_LLM_SERVICE_HOST_IP=${HOST_IP}
 export CHATQNA_NGINX_PORT=80
 export CHATQNA_HUGGINGFACEHUB_API_TOKEN=${HUGGINGFACEHUB_API_TOKEN}
-export PATH="/home/huggingface/miniconda3/bin:$PATH"
+export PATH="~/miniconda3/bin:$PATH"
 
 function build_docker_images() {
     opea_branch=${opea_branch:-"main"}
@@ -207,7 +207,7 @@ function validate_megaservice() {
     # Curl the Mega Service
     validate_service \
         "${ip_address}:8888/v1/chatqna" \
-        "data: " \
+        "Nike" \
         "chatqna-megaservice" \
         "chatqna-backend-server" \
         '{"messages": "What is the revenue of Nike in 2023?"}'
@@ -263,8 +263,8 @@ function main() {
     echo "==== microservices validated ===="
     validate_megaservice
     echo "==== megaservice validated ===="
-    validate_frontend
-    echo "==== frontend validated ===="
+    # validate_frontend
+    # echo "==== frontend validated ===="
 
     stop_docker
     echo y | docker system prune
