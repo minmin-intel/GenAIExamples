@@ -49,13 +49,13 @@ Here're some of the project's features:
 
   ```bash
   # inside AgentQnA/ui/
-  docker build -t opea:agent-ui -f docker/Dockerfile .
+  docker build --no-cache -t opea:agent-ui -f docker/Dockerfile . --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy
   ```
 
 - Run the Docker container:
 
-  ```
-  docker run -d -p 5173:5173 --name agent-ui opea:agent-ui
+  ``` bash
+  docker run -d -p 5173:5173 --name agent-ui -e http_proxy=$http_proxy -e https_proxy=$https_proxy opea:agent-ui
   ```
 
 - The application will be available at `http://localhost:5173`.
