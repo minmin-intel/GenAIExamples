@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  gui-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"  # API server
+      - "5900:5900"  # VNC server (for debugging)
+    restart: unless-stopped
+    volumes:
+      - ./shared:/app/shared  # Optional shared folder between host and container
+    environment:
+      - DISPLAY=:1

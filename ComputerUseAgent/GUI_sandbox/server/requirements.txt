@@ -1,0 +1,6 @@
+flask==2.0.1
+flask-cors==3.0.10
+pyautogui==0.9.53
+pillow==9.0.1
+pyscreenshot==3.0
+python-xlib==0.31
