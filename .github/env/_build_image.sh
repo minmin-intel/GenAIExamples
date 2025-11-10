@@ -2,5 +2,5 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-export VLLM_VER=v0.11.1rc5
+export VLLM_VER=v0.11.1rc6
 export VLLM_FORK_VER=v0.6.6.post1+Gaudi-1.20.0
