@@ -25,7 +25,7 @@ function build_docker_images() {
     popd && sleep 1s
     git clone https://github.com/vllm-project/vllm.git && cd vllm
 
-    VLLM_VER=v0.21.1rc0
+    VLLM_VER=v0.22.0rc2
     echo "Check out vLLM tag ${VLLM_VER}"
     git checkout ${VLLM_VER} &> /dev/null
     # Not change the pwd
